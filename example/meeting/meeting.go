@@ -3,7 +3,7 @@ package meeting
 import (
 	"time"
 
-	"github.com/aneshas/goddd"
+	"github.com/aneshas/eventstore"
 )
 
 func New(evts []interface{}) (*Meeting, error) {
@@ -43,7 +43,7 @@ func (id MeetingID) String() string {
 }
 
 type Meeting struct {
-	goddd.AggregateRoot
+	eventstore.AggregateRoot
 
 	id          MeetingID
 	scheduledOn time.Time

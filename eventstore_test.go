@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aneshas/goddd/eventstore"
+	"github.com/aneshas/eventstore"
 )
 
 var integration = flag.Bool("integration", true, "perform integration tests")
@@ -357,6 +357,8 @@ func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
 		}
 	}
 }
+
+// TODO Test validations
 
 func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 	file, err := os.CreateTemp(os.TempDir(), "es-db-*")

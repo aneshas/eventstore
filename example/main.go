@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/aneshas/goddd/eventstore"
-	"github.com/aneshas/goddd/example/meeting"
+	"github.com/aneshas/eventstore"
+	"github.com/aneshas/eventstore/example/meeting"
 )
 
 var repo *MeetingRepo
@@ -80,6 +80,9 @@ func runProjections(ctx context.Context, store *eventstore.EventStore) {
 
 // This would be barebones, we can also provide a default
 // reflection based projector (later)
+// TODO - In example create a projection that will output an html file (table)
+// which can be served over http server
+// schedule and cancel meetings
 func NewMeetingsProjection( /* deps */ ) eventstore.Projection {
 	return func(data eventstore.EventData) error {
 		// switch data.Event.(type) {

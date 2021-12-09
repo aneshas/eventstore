@@ -32,7 +32,7 @@ func (p *Projector) Run(ctx context.Context) error {
 		wg.Add(1)
 
 		go func(projection Projection) {
-			// TODO - Offset tracking
+			// TODO - Offset tracking (later)
 			sub, _ := p.store.ReadAll(ctx)
 
 			defer sub.Close()
@@ -59,8 +59,10 @@ func (p *Projector) run(sub Subscription, projection Projection) {
 
 		case err := <-sub.Err:
 			// Check if error is io.EOF and decide weather to continue
+			// consider throttling after EOF
+
 			if err != nil {
-				// If !eof handle retry / logging
+				// If eof handle retry / logging
 			}
 		}
 	}

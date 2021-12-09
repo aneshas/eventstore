@@ -1,4 +1,4 @@
-module github.com/aneshas/goddd
+module github.com/aneshas/eventstore
 
 go 1.17
 

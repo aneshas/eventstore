@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/aneshas/goddd/eventstore"
-	"github.com/aneshas/goddd/example/meeting"
+	"github.com/aneshas/eventstore"
+	"github.com/aneshas/eventstore/example/meeting"
 )
 
 type MeetingRepo struct {

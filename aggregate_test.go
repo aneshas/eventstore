@@ -1,13 +1,13 @@
-package goddd_test
+package eventstore_test
 
 import (
 	"testing"
 
-	"github.com/aneshas/goddd"
+	"github.com/aneshas/eventstore"
 )
 
 type testAggregate struct {
-	goddd.AggregateRoot
+	eventstore.AggregateRoot
 
 	name  string
 	email string

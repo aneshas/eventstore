@@ -1,28 +1,15 @@
-package goddd
+package eventstore
 
+// TODO - Consider moving this to eventstore package since it is only
+// useful in that context
 import (
 	"reflect"
 )
 
-// // DomainID is an interface of a domain identity
-// type DomainID interface {
-// 	fmt.Stringer
-// }
-
-// // AggregateRoot represents DDD Aggregate interface
-// type AggregateRoot interface {
-// 	// Events should return uncommited domain events
-// 	Events() []interface{}
-
-// 	// Version should return aggregate version
-// 	// used for optimistic concurrency
-// 	Version() int
-// }
-
 // AggregateRoot represents reusable DDD Aggregate implementation
 type AggregateRoot struct {
 	version      int
-	DomainEvents []interface{}
+	domainEvents []interface{}
 	aggrPtr      interface{}
 }
 
@@ -33,11 +20,11 @@ func (a *AggregateRoot) Version() int { return a.version }
 
 // Events returns aggregate domain events
 func (a *AggregateRoot) Events() []interface{} {
-	if a.DomainEvents == nil {
+	if a.domainEvents == nil {
 		return []interface{}{}
 	}
 
-	return a.DomainEvents
+	return a.domainEvents
 }
 
 func (a *AggregateRoot) Init(aggrPtr interface{}, evts ...interface{}) {
@@ -54,7 +41,7 @@ func (a *AggregateRoot) Init(aggrPtr interface{}, evts ...interface{}) {
 func (a *AggregateRoot) ApplyEvent(evt interface{}) {
 	// TODO Apply should return error in case mutate fails
 	a.mutate(evt)
-	a.AppendEvent(evt)
+	a.appendEvent(evt)
 }
 
 func (a *AggregateRoot) mutate(evt interface{}) {
@@ -70,8 +57,6 @@ func (a *AggregateRoot) mutate(evt interface{}) {
 	})
 }
 
-// AppendEvent would be used if we only made use of
-// domain events without event sourcing
-func (a *AggregateRoot) AppendEvent(evt interface{}) {
-	a.DomainEvents = append(a.DomainEvents, evt)
+func (a *AggregateRoot) appendEvent(evt interface{}) {
+	a.domainEvents = append(a.domainEvents, evt)
 }

@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/aneshas/goddd/eventstore"
+	"github.com/aneshas/eventstore"
 )
 
 type AnotherEvent struct {
