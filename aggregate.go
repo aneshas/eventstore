@@ -1,68 +1,64 @@
 package goddd
 
 import (
-	"fmt"
 	"reflect"
 )
 
-// DomainID is an interface of a domain identity
-type DomainID interface {
-	fmt.Stringer
-}
+// // DomainID is an interface of a domain identity
+// type DomainID interface {
+// 	fmt.Stringer
+// }
 
-// DomainEvent represents DDD domain event
-type DomainEvent interface {
-	// TODO - Timestamp?
-}
+// // AggregateRoot represents DDD Aggregate interface
+// type AggregateRoot interface {
+// 	// Events should return uncommited domain events
+// 	Events() []interface{}
 
-// AggregateRoot represents DDD Aggregate interface
-type AggregateRoot interface {
-	// ID should return aggregate identity
-	ID() DomainID
+// 	// Version should return aggregate version
+// 	// used for optimistic concurrency
+// 	Version() int
+// }
 
-	// Events should return uncommited domain events
-	Events() []DomainEvent
-
-	// Version should return aggregates version
-	// used for optimistic concurrency
-	Version() int
-}
-
-// BaseAggregateRoot represents reusable DDD Aggregate implementation
-type BaseAggregateRoot struct {
+// AggregateRoot represents reusable DDD Aggregate implementation
+type AggregateRoot struct {
 	version      int
-	domainEvents []DomainEvent
+	DomainEvents []interface{}
+	aggrPtr      interface{}
 }
 
-// Version returns BaseAggregates version
-func (a *BaseAggregateRoot) Version() int { return a.version }
+// Version returns aggregate version
+func (a *AggregateRoot) Version() int { return a.version }
 
-// Events returns BaseAggregate domain events
-func (a *BaseAggregateRoot) Events() []DomainEvent {
-	if a.domainEvents == nil {
-		return []DomainEvent{}
+// TODO - Fix comments
+
+// Events returns aggregate domain events
+func (a *AggregateRoot) Events() []interface{} {
+	if a.DomainEvents == nil {
+		return []interface{}{}
 	}
 
-	return a.domainEvents
+	return a.DomainEvents
 }
 
-func (a *BaseAggregateRoot) Init(aggrPtr AggregateRoot, evts []DomainEvent) {
+func (a *AggregateRoot) Init(aggrPtr interface{}, evts ...interface{}) {
+	a.aggrPtr = aggrPtr
+
 	for _, evt := range evts {
-		// TODO - Panic if mutate errors out
-		a.mutate(aggrPtr, evt)
+		// TODO - Panic if mutate errors out - don't !!!
+		a.mutate(evt)
 		a.version++
 	}
 }
 
 // ApplyEvent mutates aggregate and appends event to domain events
-func (a *BaseAggregateRoot) ApplyEvent(aggrPtr AggregateRoot, evt DomainEvent) {
+func (a *AggregateRoot) ApplyEvent(evt interface{}) {
 	// TODO Apply should return error in case mutate fails
-	a.mutate(aggrPtr, evt)
+	a.mutate(evt)
 	a.AppendEvent(evt)
 }
 
-func (a *BaseAggregateRoot) mutate(aggrPtr AggregateRoot, evt DomainEvent) {
-	v := reflect.ValueOf(aggrPtr)
+func (a *AggregateRoot) mutate(evt interface{}) {
+	v := reflect.ValueOf(a.aggrPtr)
 	ev := reflect.TypeOf(evt)
 
 	handle := v.MethodByName("On" + ev.Elem().Name())
@@ -76,6 +72,6 @@ func (a *BaseAggregateRoot) mutate(aggrPtr AggregateRoot, evt DomainEvent) {
 
 // AppendEvent would be used if we only made use of
 // domain events without event sourcing
-func (a *BaseAggregateRoot) AppendEvent(evt DomainEvent) {
-	a.domainEvents = append(a.domainEvents, evt)
+func (a *AggregateRoot) AppendEvent(evt interface{}) {
+	a.DomainEvents = append(a.DomainEvents, evt)
 }

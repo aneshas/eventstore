@@ -67,3 +67,31 @@ func postponeMeetingBy(id meeting.MeetingID, d time.Duration) error {
 
 	return repo.Save(context.Background(), meet)
 }
+
+func runProjections(ctx context.Context, store *eventstore.EventStore) {
+	p := eventstore.NewProjector(store)
+
+	p.Add(
+		NewMeetingsProjection(),
+	)
+
+	log.Fatal(p.Run(ctx))
+}
+
+// This would be barebones, we can also provide a default
+// reflection based projector (later)
+func NewMeetingsProjection( /* deps */ ) eventstore.Projection {
+	return func(data eventstore.EventData) error {
+		// switch data.Event.(type) {
+		// case meeting.MeetingScheduled:
+		// 	// Save new entry to table
+		// 	break
+
+		// case meeting.MeetingPostponed:
+		// 	// Update existing entry
+		// 	break
+		// }
+
+		return nil
+	}
+}

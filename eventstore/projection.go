@@ -1,33 +1,70 @@
 package eventstore
 
-type EventStreamer interface {
-}
+import (
+	"context"
+	"sync"
+)
 
 // TODO Add common middlewares and ability to wrap
 // eg. retry mechanism, error handler...
 type Projection func(EventData) error
 
-func NewProjector(streamer EventStreamer, projections ...Projection) *Projector {
+// TODO configure retries and logging
+// and readAll options
+
+func NewProjector(store *EventStore) *Projector {
 	return nil
 }
 
 type Projector struct {
+	store       *EventStore
+	projections []Projection
 }
 
-// This would be barebones, we can also provide a default
-// reflection based projector (later)
-func NewMeetingsProjector( /* deps */ ) Projection {
-	return func(data EventData) error {
-		// switch data.Event.(type) {
-		// case meeting.MeetingScheduled:
-		// 	// Save new entry to table
-		// 	break
+func (p *Projector) Add(projections ...Projection) {
+	p.projections = append(p.projections, projections...)
+}
 
-		// case meeting.MeetingPostponed:
-		// 	// Update existing entry
-		// 	break
-		// }
+func (p *Projector) Run(ctx context.Context) error {
+	var wg sync.WaitGroup
 
-		return nil
+	for _, projection := range p.projections {
+		wg.Add(1)
+
+		go func(projection Projection) {
+			// TODO - Offset tracking
+			sub, _ := p.store.ReadAll(ctx)
+
+			defer sub.Close()
+
+			p.run(sub, projection)
+		}(projection)
+	}
+
+	wg.Wait()
+
+	// TODO - Collect errors
+
+	return nil
+}
+
+func (p *Projector) run(sub Subscription, projection Projection) {
+	for {
+		select {
+		case data := <-sub.EventData:
+			err := projection(data)
+			if err != nil {
+				// TODO - Handle retries, logging etc...
+			}
+
+		case err := <-sub.Err:
+			// Check if error is io.EOF and decide weather to continue
+			if err != nil {
+				// If !eof handle retry / logging
+			}
+		}
 	}
 }
+
+// TODO - Design projetions to work in batches like kafka eg.
+// we would need begin and commit hooks

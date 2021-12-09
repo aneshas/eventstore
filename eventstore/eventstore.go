@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 
 	"github.com/mattn/go-sqlite3"
 	"gorm.io/driver/sqlite"
@@ -15,15 +16,16 @@ const (
 )
 
 var (
-	ErrStreamNotFound         = errors.New("stream not found")
-	ErrConcurrencyCheckFailed = errors.New("optimistic concurrency check failed: stream version exists")
+	ErrStreamNotFound             = errors.New("stream not found")
+	ErrConcurrencyCheckFailed     = errors.New("optimistic concurrency check failed: stream version exists")
+	ErrSubscriptionClosedByClient = errors.New("subscription closed by client")
 )
 
 type EventData struct {
 	Event interface{}
 	Meta  map[string]string
 	Type  string
-	// TODO Add CreatedAt(), Version(),  Offset?
+	// TODO Add CreatedAt(), Version(),  Offset, Stream
 }
 
 type EncodedEvt struct {
@@ -55,6 +57,15 @@ type EventStore struct {
 	enc Encoder
 }
 
+func (es *EventStore) Close() error {
+	sqlDB, err := es.db.DB()
+	if err != nil {
+		return err
+	}
+
+	return sqlDB.Close()
+}
+
 type gormEvent struct {
 	gorm.Model
 	Type          string
@@ -64,14 +75,14 @@ type gormEvent struct {
 	Meta          string
 }
 
-type appendEventsConfig struct {
+type appendStreamConfig struct {
 	meta map[string]string
 }
 
-type AppendEventsOpt func(appendEventsConfig) appendEventsConfig
+type appendStreamOpt func(appendStreamConfig) appendStreamConfig
 
-func WithMetaData(meta map[string]string) AppendEventsOpt {
-	return func(cfg appendEventsConfig) appendEventsConfig {
+func WithMetaData(meta map[string]string) appendStreamOpt {
+	return func(cfg appendStreamConfig) appendStreamConfig {
 		cfg.meta = meta
 
 		return cfg
@@ -83,9 +94,9 @@ func (e *EventStore) AppendStream(
 	stream string,
 	expectedVer int,
 	evts []interface{},
-	opts ...AppendEventsOpt) error {
+	opts ...appendStreamOpt) error {
 
-	cfg := appendEventsConfig{}
+	cfg := appendStreamConfig{}
 
 	for _, opt := range opts {
 		cfg = opt(cfg)
@@ -124,6 +135,118 @@ func (e *EventStore) AppendStream(
 	return tx.Error
 }
 
+type readAllConfig struct {
+	offset    int
+	batchSize int
+}
+
+type readAllOpt func(readAllConfig) readAllConfig
+
+func WithOffset(offset int) readAllOpt {
+	return func(cfg readAllConfig) readAllConfig {
+		cfg.offset = offset
+
+		return cfg
+	}
+}
+
+func WithBatchSize(size int) readAllOpt {
+	return func(cfg readAllConfig) readAllConfig {
+		cfg.batchSize = size
+
+		return cfg
+	}
+}
+
+type Subscription struct {
+	// Err can also be used as backpressure
+	// eg. every time io.EOF is read increase backoff
+	Err       chan error
+	EventData chan EventData
+
+	close chan struct{}
+}
+
+func (s Subscription) Close() {
+	s.close <- struct{}{}
+}
+
+func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscription, error) {
+	cfg := readAllConfig{
+		offset:    0,
+		batchSize: 100,
+	}
+
+	// TODO parse opts
+
+	sub := Subscription{
+		Err:       make(chan error, 1),
+		EventData: make(chan EventData, cfg.batchSize),
+		close:     make(chan struct{}, 1),
+	}
+
+	go func() {
+		var done error
+
+		for {
+			select {
+			case <-sub.close:
+				sub.Err <- ErrSubscriptionClosedByClient
+
+				return
+			case <-ctx.Done():
+				sub.Err <- ctx.Err()
+
+				return
+			default:
+				// Make sure client reads all buffered events
+				if done != nil {
+					if len(sub.EventData) != 0 {
+						break
+					}
+
+					sub.Err <- done
+
+					return
+				}
+
+				var evts []gormEvent
+
+				if err := e.db.
+					Where("id > ?", cfg.offset).
+					Order("id asc").
+					Limit(cfg.batchSize).
+					Find(&evts).Error; err != nil {
+					done = err
+
+					break
+				}
+
+				if len(evts) == 0 {
+					sub.Err <- io.EOF
+
+					break
+				}
+
+				cfg.offset = cfg.offset + len(evts)
+
+				decoded, err := e.decodeEvts(evts)
+				if err != nil {
+					done = err
+
+					break
+				}
+
+				for _, evt := range decoded {
+					sub.EventData <- evt
+				}
+			}
+		}
+	}()
+
+	return sub, nil
+}
+
 func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
 	var evts []gormEvent
 
@@ -139,7 +262,11 @@ func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData
 		return nil, ErrStreamNotFound
 	}
 
-	outEvts := make([]EventData, len(evts))
+	return e.decodeEvts(evts)
+}
+
+func (e *EventStore) decodeEvts(evts []gormEvent) ([]EventData, error) {
+	out := make([]EventData, len(evts))
 
 	for i, evt := range evts {
 		data, err := e.enc.Decode(&EncodedEvt{
@@ -157,12 +284,12 @@ func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData
 			return nil, err
 		}
 
-		outEvts[i] = EventData{
+		out[i] = EventData{
 			Event: data,
 			Type:  evt.Type,
 			Meta:  meta,
 		}
 	}
 
-	return outEvts, nil
+	return out, nil
 }

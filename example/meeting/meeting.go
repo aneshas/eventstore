@@ -6,7 +6,7 @@ import (
 	"github.com/aneshas/goddd"
 )
 
-func New(evts []goddd.DomainEvent) (*Meeting, error) {
+func New(evts []interface{}) (*Meeting, error) {
 	f := Meeting{}
 
 	f.Init(&f, evts)
@@ -17,7 +17,10 @@ func New(evts []goddd.DomainEvent) (*Meeting, error) {
 func Schedule(id MeetingID, date time.Time) (*Meeting, error) {
 	f := Meeting{}
 
-	f.ApplyEvent(&f, &MeetingScheduled{
+	f.Init(&f)
+
+	// TODO - Why ptr?
+	f.ApplyEvent(&MeetingScheduled{
 		MeetingID:   id.String(),
 		ScheduledOn: date,
 	})
@@ -40,16 +43,16 @@ func (id MeetingID) String() string {
 }
 
 type Meeting struct {
-	goddd.BaseAggregateRoot
+	goddd.AggregateRoot
 
 	id          MeetingID
 	scheduledOn time.Time
 }
 
-func (m *Meeting) ID() goddd.DomainID { return m.id }
+func (m *Meeting) ID() MeetingID { return m.id }
 
 func (m *Meeting) PostponeBy(d time.Duration) {
-	m.ApplyEvent(m, &MeetingPostponed{
+	m.ApplyEvent(&MeetingPostponed{
 		MeetingID:   m.id.String(),
 		PostponedBy: d,
 	})
