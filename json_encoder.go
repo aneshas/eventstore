@@ -5,6 +5,7 @@ import (
 	"reflect"
 )
 
+// NewJsonEncoder constructs json encoder
 func NewJsonEncoder(evts ...interface{}) *JsonEncoder {
 	enc := JsonEncoder{
 		types: make(map[string]reflect.Type),
@@ -18,10 +19,13 @@ func NewJsonEncoder(evts ...interface{}) *JsonEncoder {
 	return &enc
 }
 
+// JsonEncoder provides default json Encoder implementation
+// It will marshal and unmarshal events to/from json and store the type name
 type JsonEncoder struct {
 	types map[string]reflect.Type
 }
 
+// Encode marshals incoming event to it's json representation
 func (e *JsonEncoder) Encode(evtData interface{}) (*EncodedEvt, error) {
 	data, err := json.Marshal(evtData)
 	if err != nil {
@@ -34,6 +38,7 @@ func (e *JsonEncoder) Encode(evtData interface{}) (*EncodedEvt, error) {
 	}, nil
 }
 
+// Decode unmarshals incoming event to it's corresponding go type
 func (e *JsonEncoder) Decode(evt *EncodedEvt) (interface{}, error) {
 	v := reflect.New(e.types[evt.Type])
 

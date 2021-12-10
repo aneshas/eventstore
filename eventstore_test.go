@@ -258,8 +258,6 @@ func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 
 	got = readAllSub(t, sub)
 
-	// TODO - Check event details
-
 	if len(got) != 4 {
 		t.Fatal("should have read 4 events")
 	}

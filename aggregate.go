@@ -14,10 +14,11 @@ type AggregateRoot struct {
 	aggrPtr      reflect.Value
 }
 
-// Version returns current version of the aggregate
+// Version returns current version of the aggregate (incremented every time
+// Apply is successfully called)
 func (a *AggregateRoot) Version() int { return a.version }
 
-// Events returns unommited domain events
+// Events returns uncommitted domain events (produced by calling Apply)
 func (a *AggregateRoot) Events() []interface{} {
 	if a.domainEvents == nil {
 		return []interface{}{}
