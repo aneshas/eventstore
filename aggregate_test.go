@@ -13,12 +13,12 @@ type testAggregate struct {
 	email string
 }
 
-func (ta *testAggregate) OnaggrCreated(event *aggrCreated) {
+func (ta *testAggregate) OnaggrCreated(event aggrCreated) {
 	ta.name = event.Name()
 	ta.email = event.Email()
 }
 
-func (ta *testAggregate) OnnameUpdated(event *nameUpdated) {
+func (ta *testAggregate) OnnameUpdated(event nameUpdated) {
 	ta.name = event.NewName()
 }
 
@@ -40,8 +40,8 @@ func TestApplyEventShouldMutateAggregateAndAddEvent(t *testing.T) {
 	aggr := testAggregate{}
 
 	aggr.Init(&aggr)
-	aggr.ApplyEvent(&aggrCreated{"john", "john@email.com"})
-	aggr.ApplyEvent(&nameUpdated{"max"})
+	aggr.ApplyEvent(aggrCreated{"john", "john@email.com"})
+	aggr.ApplyEvent(nameUpdated{"max"})
 
 	events := aggr.Events()
 
@@ -50,6 +50,22 @@ func TestApplyEventShouldMutateAggregateAndAddEvent(t *testing.T) {
 	}
 
 	if aggr.name != "max" || aggr.email != "john@email.com" {
+		t.Errorf("aggregate not mutated")
+	}
+}
+
+func TestShouldInitAggregate(t *testing.T) {
+	aggr := testAggregate{}
+
+	aggr.Init(
+		&aggr,
+		aggrCreated{"john", "john@email.com"},
+		nameUpdated{"max"},
+	)
+
+	aggr.ApplyEvent(nameUpdated{"jane"})
+
+	if aggr.name != "jane" || aggr.email != "john@email.com" {
 		t.Errorf("aggregate not mutated")
 	}
 }

@@ -29,13 +29,13 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 	defer cleanup()
 
 	evts := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
 	}
@@ -79,13 +79,13 @@ func TestShouldWriteToDifferentStreams(t *testing.T) {
 	defer cleanup()
 
 	evts := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
 	}
@@ -119,13 +119,13 @@ func TestShouldAppendToExistingStream(t *testing.T) {
 	defer cleanup()
 
 	evts := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
 	}
@@ -158,7 +158,7 @@ func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
 	defer cleanup()
 
 	evts := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
 	}
@@ -207,13 +207,13 @@ func TestReadAllCatchesUpToNewEvents(t *testing.T) {
 	defer cleanup()
 
 	evts := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
 	}
@@ -236,16 +236,16 @@ func TestReadAllCatchesUpToNewEvents(t *testing.T) {
 	}
 
 	evtsTwo := []interface{}{
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-1",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
-		&SomeEvent{
+		SomeEvent{
 			UserID: "user-2",
 		},
 	}

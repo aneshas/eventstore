@@ -63,7 +63,7 @@ func postponeMeetingBy(id meeting.MeetingID, d time.Duration) error {
 		return err
 	}
 
-	meet.PostponeBy(time.Hour * 10)
+	meet.PostponeBy(10 * time.Hour)
 
 	return repo.Save(context.Background(), meet)
 }

@@ -9,7 +9,7 @@ import (
 func New(evts []interface{}) (*Meeting, error) {
 	f := Meeting{}
 
-	f.Init(&f, evts)
+	f.Init(&f, evts...)
 
 	return &f, nil
 }
@@ -19,11 +19,12 @@ func Schedule(id MeetingID, date time.Time) (*Meeting, error) {
 
 	f.Init(&f)
 
-	// TODO - Why ptr?
-	f.ApplyEvent(&MeetingScheduled{
-		MeetingID:   id.String(),
-		ScheduledOn: date,
-	})
+	f.ApplyEvent(
+		MeetingScheduled{
+			MeetingID:   id.String(),
+			ScheduledOn: date,
+		},
+	)
 
 	return &f, nil
 }
@@ -52,13 +53,15 @@ type Meeting struct {
 func (m *Meeting) ID() MeetingID { return m.id }
 
 func (m *Meeting) PostponeBy(d time.Duration) {
-	m.ApplyEvent(&MeetingPostponed{
-		MeetingID:   m.id.String(),
-		PostponedBy: d,
-	})
+	m.ApplyEvent(
+		MeetingPostponed{
+			MeetingID:   m.id.String(),
+			PostponedBy: d,
+		},
+	)
 }
 
-func (m *Meeting) OnMeetingScheduled(e *MeetingScheduled) {
+func (m *Meeting) OnMeetingScheduled(e MeetingScheduled) {
 	m.id = MeetingID{
 		id: e.MeetingID,
 	}
@@ -66,6 +69,6 @@ func (m *Meeting) OnMeetingScheduled(e *MeetingScheduled) {
 	m.scheduledOn = e.ScheduledOn
 }
 
-func (m *Meeting) OnMeetingPostponed(e *MeetingPostponed) {
+func (m *Meeting) OnMeetingPostponed(e MeetingPostponed) {
 	m.scheduledOn = m.scheduledOn.Add(e.PostponedBy)
 }

@@ -29,7 +29,7 @@ func (e *JsonEncoder) Encode(evtData interface{}) (*EncodedEvt, error) {
 	}
 
 	return &EncodedEvt{
-		Type: reflect.TypeOf(evtData).Elem().Name(),
+		Type: reflect.TypeOf(evtData).Name(),
 		Data: string(data),
 	}, nil
 }
@@ -42,5 +42,5 @@ func (e *JsonEncoder) Decode(evt *EncodedEvt) (interface{}, error) {
 		return nil, err
 	}
 
-	return v.Interface(), nil
+	return v.Elem().Interface(), nil
 }

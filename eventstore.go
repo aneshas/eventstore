@@ -1,3 +1,7 @@
+// Package eventstore provides a simple light-weight event store implementation
+// that uses sqlite as a backing storage.
+// Apart from the event store, mechanisms for building projections and
+// working with aggregate roots are provided
 package eventstore
 
 import (
@@ -11,16 +15,31 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	InitialStreamVersion int = 0
-)
-
 var (
-	ErrStreamNotFound             = errors.New("stream not found")
-	ErrConcurrencyCheckFailed     = errors.New("optimistic concurrency check failed: stream version exists")
+	// ErrStreamNotFound indicates that the requested stream does not exist in the event store
+	ErrStreamNotFound = errors.New("stream not found")
+
+	// ErrConcurrencyCheckFailed indicates that stream entry related to a particular version already exists
+	ErrConcurrencyCheckFailed = errors.New("optimistic concurrency check failed: stream version exists")
+
+	// ErrSubscriptionClosedByClient is produced by sub.Err if client cancels the subscription using sub.Close()
 	ErrSubscriptionClosedByClient = errors.New("subscription closed by client")
 )
 
+// EncodedEvt represents encoded event used by a specific encoder implementation
+type EncodedEvt struct {
+	Data string
+	Type string
+}
+
+// Encoder is used by the event store in order to correctly marshal
+// and unmarshal event types
+type Encoder interface {
+	Encode(interface{}) (*EncodedEvt, error)
+	Decode(*EncodedEvt) (interface{}, error)
+}
+
+// EventData holds stored event data and meta data
 type EventData struct {
 	Event interface{}
 	Meta  map[string]string
@@ -28,16 +47,9 @@ type EventData struct {
 	// TODO Add CreatedAt(), Version(),  Offset, Stream
 }
 
-type EncodedEvt struct {
-	Data string
-	Type string
-}
-
-type Encoder interface {
-	Encode(interface{}) (*EncodedEvt, error)
-	Decode(*EncodedEvt) (interface{}, error)
-}
-
+// New construct new event store
+// dbname - a path to sqlite database on disk
+// enc - a specific encoder implementation (see bundled JsonEncoder)
 func New(dbname string, enc Encoder) (*EventStore, error) {
 	db, err := gorm.Open(sqlite.Open(dbname), &gorm.Config{})
 	if err != nil {
@@ -52,11 +64,14 @@ func New(dbname string, enc Encoder) (*EventStore, error) {
 	}, nil
 }
 
+// EventStore represents a sqlite event store implementation
 type EventStore struct {
 	db  *gorm.DB
 	enc Encoder
 }
 
+// Close should be called as a part of cleanup process
+// in order to close the underlying sql connection
 func (es *EventStore) Close() error {
 	sqlDB, err := es.db.DB()
 	if err != nil {
@@ -81,6 +96,8 @@ type appendStreamConfig struct {
 
 type appendStreamOpt func(appendStreamConfig) appendStreamConfig
 
+// WithMetaData is an AppendStream option that can be used to
+// associate arbitrary meta data to a batch of events to store
 func WithMetaData(meta map[string]string) appendStreamOpt {
 	return func(cfg appendStreamConfig) appendStreamConfig {
 		cfg.meta = meta
@@ -89,6 +106,19 @@ func WithMetaData(meta map[string]string) appendStreamOpt {
 	}
 }
 
+const (
+	// InitialStreamVersion can be used as an initial expectedVer for
+	// new streams (as an argument to AppendStream)
+	InitialStreamVersion int = 0
+)
+
+// AppendStream will encode provided event slice and try to append them to
+// an indicated stream. If the stream does not exist it will be created.
+// If the stream already exists an optimistic concurrency check will be performed
+// using a compound key (stream-expectedVer).
+// expectedVer should be InitialStreamVersion for new streams and the latest
+// stream version for existing streams, otherwise a concurrency error
+// will be raised
 func (e *EventStore) AppendStream(
 	ctx context.Context,
 	stream string,
@@ -142,6 +172,8 @@ type readAllConfig struct {
 
 type readAllOpt func(readAllConfig) readAllConfig
 
+// WithOffset is a ReadAll option that indicates an offset in the event store
+// from wich to start reading events (exclusive)
 func WithOffset(offset int) readAllOpt {
 	return func(cfg readAllConfig) readAllConfig {
 		cfg.offset = offset
@@ -150,6 +182,8 @@ func WithOffset(offset int) readAllOpt {
 	}
 }
 
+// WithBatchSize is a ReadAll option that specifies the read batch size (limit)
+// when reading events from the event store
 func WithBatchSize(size int) readAllOpt {
 	return func(cfg readAllConfig) readAllConfig {
 		cfg.batchSize = size
@@ -158,9 +192,15 @@ func WithBatchSize(size int) readAllOpt {
 	}
 }
 
+// Subscription represents ReadAll subscription that is used for streaming
+// incoming events
 type Subscription struct {
-	// Err can also be used as backpressure
-	// eg. every time io.EOF is read increase backoff
+	// Err chan will produce any errors that might occurr while reading events
+	// If Err produces io.EOF error, that indicates that we have caught up
+	// with the event store and that there are no more events to read after which
+	// the subscription itself will continue polling the event store for new events
+	// each time we empty the Err channel. This means that reading from Err (in
+	// case of io.EOF) can be strategically used in order to achieve backpressure
 	Err       chan error
 	EventData chan EventData
 
@@ -171,6 +211,9 @@ func (s Subscription) Close() {
 	s.close <- struct{}{}
 }
 
+// ReadAll will create a subscription which will stream all events in an
+// orderly fashion. This mechanism should probably be mostly useful for
+// building projections
 func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscription, error) {
 	cfg := readAllConfig{
 		offset:    0,
@@ -247,6 +290,8 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 	return sub, nil
 }
 
+// ReadStream will read all events associated with provided stream
+// If there are no events stored for a given stream ErrStreamNotFound will be returned
 func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
 	var evts []gormEvent
 

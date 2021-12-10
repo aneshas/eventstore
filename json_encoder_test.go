@@ -14,17 +14,16 @@ type AnotherEvent struct {
 func TestShouldDecodeEncodedEvent(t *testing.T) {
 	enc := eventstore.NewJsonEncoder(SomeEvent{}, AnotherEvent{})
 
-	decodeEncode(t, enc, &SomeEvent{
+	decodeEncode(t, enc, SomeEvent{
 		UserID: "some-user",
 	})
 
-	decodeEncode(t, enc, &AnotherEvent{
+	decodeEncode(t, enc, AnotherEvent{
 		Smth: "foo",
 	})
 }
 
 func decodeEncode(t *testing.T, enc eventstore.Encoder, e interface{}) {
-
 	encoded, err := enc.Encode(e)
 	if err != nil {
 		t.Fatalf("%v", err)

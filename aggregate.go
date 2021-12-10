@@ -48,7 +48,7 @@ func (a *AggregateRoot) mutate(evt interface{}) {
 	v := reflect.ValueOf(a.aggrPtr)
 	ev := reflect.TypeOf(evt)
 
-	handle := v.MethodByName("On" + ev.Elem().Name())
+	handle := v.MethodByName("On" + ev.Name())
 
 	// TODO better errors
 
