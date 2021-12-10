@@ -23,17 +23,21 @@ func (r *MeetingRepo) Save(ctx context.Context, m *meeting.Meeting) error {
 }
 
 func (r *MeetingRepo) FindByID(id meeting.MeetingID) (*meeting.Meeting, error) {
-	evts, err := r.store.ReadStream(context.Background(), id.String())
+	data, err := r.store.ReadStream(context.Background(), id.String())
 	if err != nil {
 		return nil, err
 	}
 
-	var dddEvts []interface{}
+	var evts []interface{}
 
-	for _, evt := range evts {
+	for _, evt := range data {
 		// eg. extract additional props (CreatedAt etc...)
-		dddEvts = append(dddEvts, evt.Event)
+		evts = append(evts, evt.Event)
 	}
 
-	return meeting.New(dddEvts)
+	var m meeting.Meeting
+
+	m.Init(&m, evts...)
+
+	return &m, nil
 }

@@ -2,6 +2,9 @@ package eventstore
 
 import (
 	"context"
+	"errors"
+	"io"
+	"log"
 	"sync"
 )
 
@@ -9,9 +12,9 @@ import (
 // eg. retry mechanism, error handler...
 type Projection func(EventData) error
 
-// TODO configure retries and logging
 // and readAll options
 
+// Rename to SimpleProjector ?
 func NewProjector(store *EventStore) *Projector {
 	return nil
 }
@@ -32,7 +35,6 @@ func (p *Projector) Run(ctx context.Context) error {
 		wg.Add(1)
 
 		go func(projection Projection) {
-			// TODO - Offset tracking (later)
 			sub, _ := p.store.ReadAll(ctx)
 
 			defer sub.Close()
@@ -43,8 +45,6 @@ func (p *Projector) Run(ctx context.Context) error {
 
 	wg.Wait()
 
-	// TODO - Collect errors
-
 	return nil
 }
 
@@ -52,21 +52,21 @@ func (p *Projector) run(sub Subscription, projection Projection) {
 	for {
 		select {
 		case data := <-sub.EventData:
+			// TODO - Loop while err != nil
 			err := projection(data)
 			if err != nil {
-				// TODO - Handle retries, logging etc...
+				// Log
+				log.Println(err)
 			}
 
 		case err := <-sub.Err:
-			// Check if error is io.EOF and decide weather to continue
-			// consider throttling after EOF
-
 			if err != nil {
-				// If eof handle retry / logging
+				if errors.Is(err, io.EOF) {
+					break
+				}
+
+				log.Println(err)
 			}
 		}
 	}
 }
-
-// TODO - Design projetions to work in batches like kafka eg.
-// we would need begin and commit hooks

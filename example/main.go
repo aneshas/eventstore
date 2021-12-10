@@ -49,7 +49,7 @@ func checkErr(err error) {
 }
 
 func scheduleMeeting(id meeting.MeetingID, date time.Time) error {
-	meet, err := meeting.Schedule(id, time.Now())
+	meet, err := meeting.New(id, time.Now())
 	if err != nil {
 		return err
 	}

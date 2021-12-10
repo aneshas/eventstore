@@ -6,27 +6,19 @@ import (
 	"github.com/aneshas/eventstore"
 )
 
-func New(evts []interface{}) (*Meeting, error) {
-	f := Meeting{}
+func New(id MeetingID, date time.Time) (*Meeting, error) {
+	m := Meeting{}
 
-	f.Init(&f, evts...)
+	m.Init(&m)
 
-	return &f, nil
-}
-
-func Schedule(id MeetingID, date time.Time) (*Meeting, error) {
-	f := Meeting{}
-
-	f.Init(&f)
-
-	f.ApplyEvent(
+	err := m.Apply(
 		MeetingScheduled{
 			MeetingID:   id.String(),
 			ScheduledOn: date,
 		},
 	)
 
-	return &f, nil
+	return &m, err
 }
 
 func NewMeetingID() MeetingID {
@@ -52,8 +44,8 @@ type Meeting struct {
 
 func (m *Meeting) ID() MeetingID { return m.id }
 
-func (m *Meeting) PostponeBy(d time.Duration) {
-	m.ApplyEvent(
+func (m *Meeting) PostponeBy(d time.Duration) error {
+	return m.Apply(
 		MeetingPostponed{
 			MeetingID:   m.id.String(),
 			PostponedBy: d,

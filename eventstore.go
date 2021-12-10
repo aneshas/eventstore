@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/mattn/go-sqlite3"
@@ -44,13 +45,17 @@ type EventData struct {
 	Event interface{}
 	Meta  map[string]string
 	Type  string
-	// TODO Add CreatedAt(), Version(),  Offset, Stream
+	// TODO Add CreatedAt, Version,  Offset, Stream
 }
 
 // New construct new event store
 // dbname - a path to sqlite database on disk
 // enc - a specific encoder implementation (see bundled JsonEncoder)
 func New(dbname string, enc Encoder) (*EventStore, error) {
+	if enc == nil {
+		return nil, fmt.Errorf("encoder implementation must be provided")
+	}
+
 	db, err := gorm.Open(sqlite.Open(dbname), &gorm.Config{})
 	if err != nil {
 		return nil, err
@@ -125,6 +130,18 @@ func (e *EventStore) AppendStream(
 	expectedVer int,
 	evts []interface{},
 	opts ...appendStreamOpt) error {
+
+	if len(stream) == 0 {
+		return fmt.Errorf("stream name must be provided")
+	}
+
+	if expectedVer < 0 {
+		return fmt.Errorf("expected version cannot be less than 0")
+	}
+
+	if len(evts) < 1 {
+		return fmt.Errorf("please provide at least one event to append")
+	}
 
 	cfg := appendStreamConfig{}
 
@@ -220,7 +237,13 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 		batchSize: 100,
 	}
 
-	// TODO parse opts
+	for _, opt := range opts {
+		cfg = opt(cfg)
+	}
+
+	if cfg.batchSize < 1 {
+		return Subscription{}, fmt.Errorf("batch size should be at least 1")
+	}
 
 	sub := Subscription{
 		Err:       make(chan error, 1),
@@ -294,6 +317,10 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 // If there are no events stored for a given stream ErrStreamNotFound will be returned
 func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
 	var evts []gormEvent
+
+	if len(stream) == 0 {
+		return nil, fmt.Errorf("stream name must be provided")
+	}
 
 	if err := e.db.
 		Where("stream = ?", stream).

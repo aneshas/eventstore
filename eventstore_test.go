@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -13,7 +14,7 @@ import (
 	"github.com/aneshas/eventstore"
 )
 
-var integration = flag.Bool("integration", true, "perform integration tests")
+var integration = flag.Bool("integration", false, "perform integration tests")
 
 type SomeEvent struct {
 	UserID string
@@ -197,7 +198,7 @@ func TestReadStreamWrapsNotFoundError(t *testing.T) {
 	}
 }
 
-func TestReadAllCatchesUpToNewEvents(t *testing.T) {
+func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 	if !*integration {
 		return
 	}
@@ -225,14 +226,14 @@ func TestReadAllCatchesUpToNewEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, _ := es.ReadAll(ctx)
+	sub, _ := es.ReadAll(ctx, eventstore.WithOffset(1))
 
 	defer sub.Close()
 
 	got := readAllSub(t, sub)
 
-	if len(got) != 3 {
-		t.Fatal("should have read 3 events")
+	if len(got) != 2 {
+		t.Fatal("should have read 2 events")
 	}
 
 	evtsTwo := []interface{}{
@@ -358,7 +359,79 @@ func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
 	}
 }
 
-// TODO Test validations
+func TestNewEncoderMustBeProvided(t *testing.T) {
+	_, err := eventstore.New("foo", nil)
+	if err == nil {
+		t.Fatal("encoder must be provided")
+	}
+}
+
+func TestAppendStreamValidation(t *testing.T) {
+	es := eventstore.EventStore{}
+
+	cases := []struct {
+		stream string
+		ver    int
+		evts   []interface{}
+	}{
+		{
+			stream: "",
+			ver:    0,
+			evts: []interface{}{
+				SomeEvent{
+					UserID: "user-123",
+				},
+			},
+		},
+		{
+			stream: "s",
+			ver:    -1,
+			evts: []interface{}{
+				SomeEvent{
+					UserID: "user-123",
+				},
+			},
+		},
+		{
+			stream: "stream",
+			ver:    0,
+			evts:   nil,
+		},
+
+		{
+			stream: "stream",
+			ver:    0,
+			evts:   []interface{}{},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			err := es.AppendStream(context.Background(), tc.stream, tc.ver, tc.evts)
+			if err == nil {
+				t.Fatal("validation error should have happened")
+			}
+		})
+	}
+}
+
+func TestReadAllMinimumBatchSize(t *testing.T) {
+	es := eventstore.EventStore{}
+
+	_, err := es.ReadAll(context.Background(), eventstore.WithBatchSize(-1))
+	if err == nil {
+		t.Fatal("minimum batch size should have been validated")
+	}
+}
+
+func TestReadStreamValidation(t *testing.T) {
+	es := eventstore.EventStore{}
+
+	_, err := es.ReadStream(context.Background(), "")
+	if err == nil {
+		t.Fatal("stream name should be provided")
+	}
+}
 
 func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 	file, err := os.CreateTemp(os.TempDir(), "es-db-*")

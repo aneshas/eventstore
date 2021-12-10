@@ -1,24 +1,23 @@
 package eventstore
 
-// TODO - Consider moving this to eventstore package since it is only
-// useful in that context
 import (
+	"fmt"
 	"reflect"
 )
 
-// AggregateRoot represents reusable DDD Aggregate implementation
+// AggregateRoot represents reusable DDD Event Sourcing friendly Aggregate
+// base type which provides helpers for easy aggregate intialization and
+// event handler execution
 type AggregateRoot struct {
 	version      int
 	domainEvents []interface{}
-	aggrPtr      interface{}
+	aggrPtr      reflect.Value
 }
 
-// Version returns aggregate version
+// Version returns current version of the aggregate
 func (a *AggregateRoot) Version() int { return a.version }
 
-// TODO - Fix comments
-
-// Events returns aggregate domain events
+// Events returns unommited domain events
 func (a *AggregateRoot) Events() []interface{} {
 	if a.domainEvents == nil {
 		return []interface{}{}
@@ -27,34 +26,74 @@ func (a *AggregateRoot) Events() []interface{} {
 	return a.domainEvents
 }
 
-func (a *AggregateRoot) Init(aggrPtr interface{}, evts ...interface{}) {
-	a.aggrPtr = aggrPtr
+// Init is used to initialize aggregate (store pointer to the derived type)
+// and/or initialize it with provided events (execute all event handlers)
+func (a *AggregateRoot) Init(aggrPtr interface{}, evts ...interface{}) error {
+	a.aggrPtr = reflect.ValueOf(aggrPtr)
+
+	if a.aggrPtr.Kind() != reflect.Ptr {
+		return fmt.Errorf("aggrPtr needs to be a pointer")
+	}
+
+	var err error
 
 	for _, evt := range evts {
-		// TODO - Panic if mutate errors out - don't !!!
-		a.mutate(evt)
+		err = a.mutate(evt)
+		if err != nil {
+			return err
+		}
+
 		a.version++
 	}
+
+	return nil
 }
 
-// ApplyEvent mutates aggregate and appends event to domain events
-func (a *AggregateRoot) ApplyEvent(evt interface{}) {
-	// TODO Apply should return error in case mutate fails
-	a.mutate(evt)
-	a.appendEvent(evt)
+// Apply mutates aggregate (calls respective event handle) and
+// appends event to internal slice so they can be retrieved with Events method
+// In order for Apply to work the derived aggregate struct needs to implement
+// an event handler method for all events it produces eg:
+//
+// If it produces event of type: SomethingImportantHappened
+// Derived aggregate should have the following method implemented:
+// func (a *Aggr) OnSomethingImportantHappened(e SomethingImportantHappened) error
+func (a *AggregateRoot) Apply(evts ...interface{}) error {
+	for _, evt := range evts {
+		err := a.mutate(evt)
+		if err != nil {
+			return err
+		}
+
+		a.appendEvent(evt)
+	}
+
+	return nil
 }
 
-func (a *AggregateRoot) mutate(evt interface{}) {
-	v := reflect.ValueOf(a.aggrPtr)
+func (a *AggregateRoot) mutate(evt interface{}) error {
 	ev := reflect.TypeOf(evt)
 
-	handle := v.MethodByName("On" + ev.Name())
+	hname := fmt.Sprintf("On%s", ev.Name())
 
-	// TODO better errors
+	h := a.aggrPtr.MethodByName(hname)
 
-	handle.Call([]reflect.Value{
+	if !h.IsValid() {
+		return fmt.Errorf("missing aggregate event handler method: %s", hname)
+	}
+
+	results := h.Call([]reflect.Value{
 		reflect.ValueOf(evt),
 	})
+
+	if len(results) == 0 {
+		return fmt.Errorf("event handler should return an error")
+	}
+
+	if err, ok := results[0].Interface().(error); ok {
+		return err
+	}
+
+	return nil
 }
 
 func (a *AggregateRoot) appendEvent(evt interface{}) {
