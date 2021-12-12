@@ -200,7 +200,7 @@ func TestReadStreamWrapsNotFoundError(t *testing.T) {
 
 func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -233,10 +233,10 @@ func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 
 	defer sub.Close()
 
-	got := readAllSub(t, sub)
+	got := readAllSub(t, sub, 2)
 
 	if len(got) != 2 {
-		t.Fatal("should have read 2 events")
+		t.Fatalf("should have read 2 events. actual: %d", len(got))
 	}
 
 	evtsTwo := []interface{}{
@@ -259,14 +259,14 @@ func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got = readAllSub(t, sub)
+	got = readAllSub(t, sub, 4)
 
 	if len(got) != 4 {
-		t.Fatal("should have read 4 events")
+		t.Fatalf("should have read 4 events. actual: %d", len(got))
 	}
 }
 
-func readAllSub(t *testing.T, sub eventstore.Subscription) []eventstore.EventData {
+func readAllSub(t *testing.T, sub eventstore.Subscription, expect int) []eventstore.EventData {
 	var got []eventstore.EventData
 
 outer:
@@ -278,9 +278,10 @@ outer:
 		case err := <-sub.Err:
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					if len(got) == 0 {
+					if len(got) < expect {
 						break
 					}
+
 					break outer
 				}
 

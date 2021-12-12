@@ -49,6 +49,9 @@ func runConsoleOutputProjection(sub eventstore.Subscription) {
 		case err := <-sub.Err:
 			if err != nil {
 				if errors.Is(err, io.EOF) {
+					// If there are no more events (indicated by io.EOF)
+					// we choose to break in order to keep the subscription open
+					// so we are notified of new events.
 					break
 				}
 
