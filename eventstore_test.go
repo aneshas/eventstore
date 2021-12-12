@@ -22,7 +22,7 @@ type SomeEvent struct {
 
 func TestShouldReadAppendedEvents(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -72,7 +72,7 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 
 func TestShouldWriteToDifferentStreams(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -112,7 +112,7 @@ func TestShouldWriteToDifferentStreams(t *testing.T) {
 
 func TestShouldAppendToExistingStream(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -151,7 +151,7 @@ func TestShouldAppendToExistingStream(t *testing.T) {
 
 func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -185,7 +185,7 @@ func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
 
 func TestReadStreamWrapsNotFoundError(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -291,7 +291,7 @@ outer:
 
 func TestReadAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
@@ -322,7 +322,7 @@ func TestReadAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 
 func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
 	if !*integration {
-		return
+		t.Skip("skipping integration tests")
 	}
 
 	es, cleanup := eventStore(t)
