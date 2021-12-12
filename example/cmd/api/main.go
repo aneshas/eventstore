@@ -12,7 +12,7 @@ import (
 func main() {
 	estore, err := eventstore.New(
 		"exampledb",
-		eventstore.NewJsonEncoder(
+		eventstore.NewJSONEncoder(
 			account.NewAccountOpenned{},
 		),
 	)

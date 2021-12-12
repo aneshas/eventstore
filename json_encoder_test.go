@@ -12,7 +12,7 @@ type AnotherEvent struct {
 }
 
 func TestShouldDecodeEncodedEvent(t *testing.T) {
-	enc := eventstore.NewJsonEncoder(SomeEvent{}, AnotherEvent{})
+	enc := eventstore.NewJSONEncoder(SomeEvent{}, AnotherEvent{})
 
 	decodeEncode(t, enc, SomeEvent{
 		UserID: "some-user",
@@ -36,5 +36,29 @@ func decodeEncode(t *testing.T, enc eventstore.Encoder, e interface{}) {
 
 	if !reflect.DeepEqual(e, decoded) {
 		t.Fatalf("event not decoded. want: %#v, got: %#v", e, decoded)
+	}
+}
+
+func TestShouldErrorOutIfMalformedJSON(t *testing.T) {
+	enc := eventstore.NewJSONEncoder(SomeEvent{}, AnotherEvent{})
+
+	_, err := enc.Decode(&eventstore.EncodedEvt{
+		Data: "malformed-json",
+		Type: "SomeEvent",
+	})
+	if err == nil {
+		t.Fatal("should error out")
+	}
+}
+
+func TestShouldErrorOutIfEvtTypeUnknown(t *testing.T) {
+	enc := eventstore.NewJSONEncoder(SomeEvent{}, AnotherEvent{})
+
+	_, err := enc.Decode(&eventstore.EncodedEvt{
+		Data: `{"userId": "123"}`,
+		Type: "unknown",
+	})
+	if err == nil {
+		t.Fatal("should error out")
 	}
 }

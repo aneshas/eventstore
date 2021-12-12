@@ -361,6 +361,144 @@ func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
 	}
 }
 
+type enc struct {
+	encode func(interface{}) (*eventstore.EncodedEvt, error)
+	decode func(*eventstore.EncodedEvt) (interface{}, error)
+}
+
+func (e enc) Encode(evt interface{}) (*eventstore.EncodedEvt, error) {
+	return e.encode(evt)
+}
+
+func (e enc) Decode(evt *eventstore.EncodedEvt) (interface{}, error) {
+	return e.decode(evt)
+}
+
+func TestEncoderEncodeErrorsPropagated(t *testing.T) {
+	if !*integration {
+		t.Skip("skipping integration tests")
+	}
+
+	var anErr = fmt.Errorf("an error occurred")
+
+	e := enc{
+		encode: func(i interface{}) (*eventstore.EncodedEvt, error) { return nil, anErr },
+	}
+
+	es, cleanup := eventStoreWithDec(t, e)
+
+	defer cleanup()
+
+	err := es.AppendStream(
+		context.Background(),
+		"stream",
+		eventstore.InitialStreamVersion,
+		[]interface{}{
+			SomeEvent{
+				UserID: "123",
+			},
+		},
+	)
+
+	if !errors.Is(err, anErr) {
+		t.Fatal("error should have been propagated")
+	}
+}
+
+func TestEncoderDecodeErrorsPropagated(t *testing.T) {
+	if !*integration {
+		t.Skip("skipping integration tests")
+	}
+
+	var anErr = fmt.Errorf("an error occurred")
+
+	e := enc{
+		encode: func(i interface{}) (*eventstore.EncodedEvt, error) {
+			return &eventstore.EncodedEvt{
+				Data: "malformed-json",
+				Type: "foo",
+			}, nil
+		},
+		decode: func(ee *eventstore.EncodedEvt) (interface{}, error) {
+			return nil, anErr
+		},
+	}
+
+	es, cleanup := eventStoreWithDec(t, e)
+
+	defer cleanup()
+
+	err := es.AppendStream(
+		context.Background(),
+		"stream",
+		eventstore.InitialStreamVersion,
+		[]interface{}{
+			SomeEvent{
+				UserID: "123",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = es.ReadStream(context.Background(), "stream")
+
+	if !errors.Is(err, anErr) {
+		t.Fatal("error should have been propagated")
+	}
+}
+
+func TestEncoderDecodeErrorsPropagatedOnReadAll(t *testing.T) {
+	if !*integration {
+		t.Skip("skipping integration tests")
+	}
+
+	var anErr = fmt.Errorf("an error occurred")
+
+	e := enc{
+		encode: func(i interface{}) (*eventstore.EncodedEvt, error) {
+			return &eventstore.EncodedEvt{
+				Data: "malformed-json",
+				Type: "foo",
+			}, nil
+		},
+		decode: func(ee *eventstore.EncodedEvt) (interface{}, error) {
+			return nil, anErr
+		},
+	}
+
+	es, cleanup := eventStoreWithDec(t, e)
+
+	defer cleanup()
+
+	err := es.AppendStream(
+		context.Background(),
+		"stream",
+		eventstore.InitialStreamVersion,
+		[]interface{}{
+			SomeEvent{
+				UserID: "123",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sub, err := es.ReadAll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer sub.Close()
+
+	err = <-sub.Err
+
+	if !errors.Is(err, anErr) {
+		t.Fatal("error should have been propagated")
+	}
+}
 func TestNewEncoderMustBeProvided(t *testing.T) {
 	_, err := eventstore.New("foo", nil)
 	if err == nil {
@@ -436,12 +574,16 @@ func TestReadStreamValidation(t *testing.T) {
 }
 
 func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
+	return eventStoreWithDec(t, eventstore.NewJSONEncoder(SomeEvent{}))
+}
+
+func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventStore, func()) {
 	file, err := os.CreateTemp(os.TempDir(), "es-db-*")
 	if err != nil {
 		t.Fatalf("could not create tem file: %v", err)
 	}
 
-	es, err := eventstore.New(file.Name(), eventstore.NewJsonEncoder(SomeEvent{}))
+	es, err := eventstore.New(file.Name(), enc)
 	if err != nil {
 		t.Fatalf("error creating es: %v", err)
 	}

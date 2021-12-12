@@ -2,11 +2,13 @@ package eventstore
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 )
 
-// NewJsonEncoder constructs json encoder
-func NewJsonEncoder(evts ...interface{}) *JsonEncoder {
+// NewJSONEncoder constructs json encoder
+// It receives a slice of event types it should be able to encode/decode
+func NewJSONEncoder(evts ...interface{}) *JsonEncoder {
 	enc := JsonEncoder{
 		types: make(map[string]reflect.Type),
 	}
@@ -26,21 +28,26 @@ type JsonEncoder struct {
 }
 
 // Encode marshals incoming event to it's json representation
-func (e *JsonEncoder) Encode(evtData interface{}) (*EncodedEvt, error) {
-	data, err := json.Marshal(evtData)
+func (e *JsonEncoder) Encode(evt interface{}) (*EncodedEvt, error) {
+	data, err := json.Marshal(evt)
 	if err != nil {
 		return nil, err
 	}
 
 	return &EncodedEvt{
-		Type: reflect.TypeOf(evtData).Name(),
+		Type: reflect.TypeOf(evt).Name(),
 		Data: string(data),
 	}, nil
 }
 
 // Decode unmarshals incoming event to it's corresponding go type
 func (e *JsonEncoder) Decode(evt *EncodedEvt) (interface{}, error) {
-	v := reflect.New(e.types[evt.Type])
+	t, ok := e.types[evt.Type]
+	if !ok {
+		return nil, fmt.Errorf("event not registered via NewJSONEncoder")
+	}
+
+	v := reflect.New(t)
 
 	err := json.Unmarshal([]byte(evt.Data), v.Interface())
 	if err != nil {
