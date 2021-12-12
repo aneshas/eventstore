@@ -226,7 +226,10 @@ func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, _ := es.ReadAll(ctx, eventstore.WithOffset(1))
+	sub, err := es.ReadAll(ctx, eventstore.WithOffset(1))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	defer sub.Close()
 
