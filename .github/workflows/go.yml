@@ -17,11 +17,13 @@ jobs:
         with:
           go-version: 1.17
 
-      - name: Goveralls Install
-        run: go get golang.org/x/tools/cmd/cover && go get github.com/mattn/goveralls
-
       - name: Test
-        run: go test -covermode=count -coverprofile=coverage.out -v `go list ./... | grep -v ./example` -integration
+        run: go test -race -covermode=count -coverprofile=coverage.out -v `go list ./... | grep -v ./example` -integration
+
+      - name: Install goveralls
+        run: go install github.com/mattn/goveralls@latest
 
       - name: Goveralls
-        run: goveralls -coverprofile=coverage.out -service=travis-ci -repotoken ${{ secrets.GOVERALLS }}
+        env:
+          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: goveralls -coverprofile=coverage.out -service=github
