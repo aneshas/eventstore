@@ -25,5 +25,5 @@ jobs:
 
       - name: Goveralls
         env:
-          COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COVERALLS_TOKEN: ${{ secrets.GOVERALLS }}
         run: goveralls -coverprofile=coverage.out -service=github
