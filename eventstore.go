@@ -124,7 +124,7 @@ const (
 // expectedVer should be InitialStreamVersion for new streams and the latest
 // stream version for existing streams, otherwise a concurrency error
 // will be raised
-func (e *EventStore) AppendStream(
+func (es *EventStore) AppendStream(
 	ctx context.Context,
 	stream string,
 	expectedVer int,
@@ -157,7 +157,7 @@ func (e *EventStore) AppendStream(
 	}
 
 	for i, evt := range evts {
-		encoded, err := e.enc.Encode(evt)
+		encoded, err := es.enc.Encode(evt)
 		if err != nil {
 			return err
 		}
@@ -173,7 +173,7 @@ func (e *EventStore) AppendStream(
 		}
 	}
 
-	tx := e.db.Create(&events)
+	tx := es.db.Create(&events)
 
 	if e, ok := tx.Error.(sqlite3.Error); ok && e.Code == 19 {
 		return ErrConcurrencyCheckFailed
@@ -190,7 +190,7 @@ type readAllConfig struct {
 type readAllOpt func(readAllConfig) readAllConfig
 
 // WithOffset is a ReadAll option that indicates an offset in the event store
-// from wich to start reading events (exclusive)
+// from which to start reading events (exclusive)
 func WithOffset(offset int) readAllOpt {
 	return func(cfg readAllConfig) readAllConfig {
 		cfg.offset = offset
@@ -212,7 +212,7 @@ func WithBatchSize(size int) readAllOpt {
 // Subscription represents ReadAll subscription that is used for streaming
 // incoming events
 type Subscription struct {
-	// Err chan will produce any errors that might occurr while reading events
+	// Err chan will produce any errors that might occur while reading events
 	// If Err produces io.EOF error, that indicates that we have caught up
 	// with the event store and that there are no more events to read after which
 	// the subscription itself will continue polling the event store for new events
@@ -224,6 +224,7 @@ type Subscription struct {
 	close chan struct{}
 }
 
+// Close closes the subscription and halts the polling of sqldb
 func (s Subscription) Close() {
 	s.close <- struct{}{}
 }
@@ -231,7 +232,7 @@ func (s Subscription) Close() {
 // ReadAll will create a subscription which will stream all events in an
 // orderly fashion. This mechanism should probably be mostly useful for
 // building projections
-func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscription, error) {
+func (es *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscription, error) {
 	cfg := readAllConfig{
 		offset:    0,
 		batchSize: 100,
@@ -278,7 +279,7 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 
 				var evts []gormEvent
 
-				if err := e.db.
+				if err := es.db.
 					Where("id > ?", cfg.offset).
 					Order("id asc").
 					Limit(cfg.batchSize).
@@ -296,7 +297,7 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 
 				cfg.offset = cfg.offset + len(evts)
 
-				decoded, err := e.decodeEvts(evts)
+				decoded, err := es.decodeEvts(evts)
 				if err != nil {
 					done = err
 
@@ -315,14 +316,14 @@ func (e *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscript
 
 // ReadStream will read all events associated with provided stream
 // If there are no events stored for a given stream ErrStreamNotFound will be returned
-func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
+func (es *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
 	var evts []gormEvent
 
 	if len(stream) == 0 {
 		return nil, fmt.Errorf("stream name must be provided")
 	}
 
-	if err := e.db.
+	if err := es.db.
 		Where("stream = ?", stream).
 		Order("id asc").
 		Find(&evts).Error; err != nil {
@@ -334,14 +335,14 @@ func (e *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData
 		return nil, ErrStreamNotFound
 	}
 
-	return e.decodeEvts(evts)
+	return es.decodeEvts(evts)
 }
 
-func (e *EventStore) decodeEvts(evts []gormEvent) ([]EventData, error) {
+func (es *EventStore) decodeEvts(evts []gormEvent) ([]EventData, error) {
 	out := make([]EventData, len(evts))
 
 	for i, evt := range evts {
-		data, err := e.enc.Decode(&EncodedEvt{
+		data, err := es.enc.Decode(&EncodedEvt{
 			Data: evt.Data,
 			Type: evt.Type,
 		})
