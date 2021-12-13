@@ -26,8 +26,10 @@ func main() {
 
 	defer cancel()
 
-	sub, err := estore.ReadAll(ctx)
+	sub, err := estore.SubscribeAll(ctx)
 	checkErr(err)
+
+	defer sub.Close()
 
 	runConsoleOutputProjection(sub)
 }
@@ -51,7 +53,7 @@ func runConsoleOutputProjection(sub eventstore.Subscription) {
 				if errors.Is(err, io.EOF) {
 					// If there are no more events (indicated by io.EOF)
 					// we choose to break in order to keep the subscription open
-					// so we are notified of new events.
+					// so we are notified of new events as they are appended
 					break
 				}
 

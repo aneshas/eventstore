@@ -182,27 +182,27 @@ func (es *EventStore) AppendStream(
 	return tx.Error
 }
 
-type readAllConfig struct {
+type subAllConfig struct {
 	offset    int
 	batchSize int
 }
 
-type readAllOpt func(readAllConfig) readAllConfig
+type subAllOpt func(subAllConfig) subAllConfig
 
-// WithOffset is a ReadAll option that indicates an offset in the event store
-// from which to start reading events (exclusive)
-func WithOffset(offset int) readAllOpt {
-	return func(cfg readAllConfig) readAllConfig {
+// WithOffset is a subscription / read all option that indicates an offset in
+// the event store from which to start reading events (exclusive)
+func WithOffset(offset int) subAllOpt {
+	return func(cfg subAllConfig) subAllConfig {
 		cfg.offset = offset
 
 		return cfg
 	}
 }
 
-// WithBatchSize is a ReadAll option that specifies the read batch size (limit)
-// when reading events from the event store
-func WithBatchSize(size int) readAllOpt {
-	return func(cfg readAllConfig) readAllConfig {
+// WithBatchSize is a subscription/read all option that specifies the read
+// batch size (limit) when reading events from the event store
+func WithBatchSize(size int) subAllOpt {
+	return func(cfg subAllConfig) subAllConfig {
 		cfg.batchSize = size
 
 		return cfg
@@ -229,11 +229,39 @@ func (s Subscription) Close() {
 	s.close <- struct{}{}
 }
 
-// ReadAll will create a subscription which will stream all events in an
-// orderly fashion. This mechanism should probably be mostly useful for
-// building projections
-func (es *EventStore) ReadAll(ctx context.Context, opts ...readAllOpt) (Subscription, error) {
-	cfg := readAllConfig{
+// ReadAll will read all events from the event store by internally creating a
+// a subscription and depleting it until io.EOF is encountered
+// WARNING: Use with caution as this method will read the entire event store
+// in a blocking fashion (porbably best used in combination with offset option)
+func (es *EventStore) ReadAll(ctx context.Context, opts ...subAllOpt) ([]EventData, error) {
+	sub, err := es.SubscribeAll(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	defer sub.Close()
+
+	var evts []EventData
+
+	for {
+		select {
+		case data := <-sub.EventData:
+			evts = append(evts, data)
+
+		case err := <-sub.Err:
+			if errors.Is(err, io.EOF) {
+				return evts, nil
+			}
+
+			return nil, err
+		}
+	}
+}
+
+// SubscribeAll will create a subscription which can be used to stream all events in an
+// orderly fashion. This mechanism should probably be mostly useful for building projections
+func (es *EventStore) SubscribeAll(ctx context.Context, opts ...subAllOpt) (Subscription, error) {
+	cfg := subAllConfig{
 		offset:    0,
 		batchSize: 100,
 	}

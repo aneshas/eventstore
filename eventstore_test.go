@@ -198,7 +198,7 @@ func TestReadStreamWrapsNotFoundError(t *testing.T) {
 	}
 }
 
-func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
+func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 	if !*integration {
 		t.Skip("skipping integration tests")
 	}
@@ -226,7 +226,7 @@ func TestReadAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := es.ReadAll(ctx, eventstore.WithOffset(1))
+	sub, err := es.SubscribeAll(ctx, eventstore.WithOffset(1))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,7 +293,51 @@ outer:
 	return got
 }
 
-func TestReadAllCancelsSubscriptionOnContextCancel(t *testing.T) {
+func TestReadAllShouldReadAllEvents(t *testing.T) {
+	if !*integration {
+		t.Skip("skipping integration tests")
+	}
+
+	es, cleanup := eventStore(t)
+
+	defer cleanup()
+
+	evts := []interface{}{
+		SomeEvent{
+			UserID: "user-1",
+		},
+		SomeEvent{
+			UserID: "user-2",
+		},
+		SomeEvent{
+			UserID: "user-3",
+		},
+	}
+
+	ctx := context.Background()
+
+	err := es.AppendStream(ctx, "stream-one", eventstore.InitialStreamVersion, evts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := es.ReadAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := []interface{}{
+		data[0].Event.(SomeEvent),
+		data[1].Event.(SomeEvent),
+		data[2].Event.(SomeEvent),
+	}
+
+	if !reflect.DeepEqual(evts, got) {
+		t.Fatal("all events should have been read")
+	}
+}
+
+func TestSubscribeAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 	if !*integration {
 		t.Skip("skipping integration tests")
 	}
@@ -306,7 +350,7 @@ func TestReadAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 
 	_ = cancel
 
-	sub, _ := es.ReadAll(ctx)
+	sub, _ := es.SubscribeAll(ctx)
 
 	timeout := time.After(2 * time.Second)
 
@@ -324,7 +368,7 @@ func TestReadAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 	}
 }
 
-func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
+func TestSubscribeAllCancelsSubscriptionWithClose(t *testing.T) {
 	if !*integration {
 		t.Skip("skipping integration tests")
 	}
@@ -333,7 +377,7 @@ func TestReadAllCancelsSubscriptionWithClose(t *testing.T) {
 
 	defer cleanup()
 
-	sub, _ := es.ReadAll(context.Background())
+	sub, _ := es.SubscribeAll(context.Background())
 
 	go func() {
 		time.Sleep(time.Second)
@@ -449,7 +493,7 @@ func TestEncoderDecodeErrorsPropagated(t *testing.T) {
 	}
 }
 
-func TestEncoderDecodeErrorsPropagatedOnReadAll(t *testing.T) {
+func TestEncoderDecodeErrorsPropagatedOnSubscribeAll(t *testing.T) {
 	if !*integration {
 		t.Skip("skipping integration tests")
 	}
@@ -486,7 +530,7 @@ func TestEncoderDecodeErrorsPropagatedOnReadAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := es.ReadAll(context.Background())
+	sub, err := es.SubscribeAll(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -552,6 +596,15 @@ func TestAppendStreamValidation(t *testing.T) {
 				t.Fatal("validation error should have happened")
 			}
 		})
+	}
+}
+
+func TestSubscribeAllMinimumBatchSize(t *testing.T) {
+	es := eventstore.EventStore{}
+
+	_, err := es.SubscribeAll(context.Background(), eventstore.WithBatchSize(-1))
+	if err == nil {
+		t.Fatal("minimum batch size should have been validated")
 	}
 }
 
