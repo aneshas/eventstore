@@ -6,6 +6,10 @@
 
 Embeddable eventstore implementation written in Go using sqlite as an underlying persistence mechanism.
 
+## Why sqlite?
+
+In the future I might choose to abstract the persistence mechanism away and add more options such as bolt or smth, but for now, I decided to go with sqlite because I think it does the job well and especially now that we have [litestream](https://github.com/benbjohnson/litestream) thanks to the amazing @benbjohnson it becomes even more flexible.
+
 ## Features
 
 - Appending (saving) events to a particular stream
