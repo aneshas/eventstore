@@ -16,10 +16,11 @@ In the future I might choose to abstract the persistence mechanism away and add 
 - Reading events from the stream
 - Reading all events
 - Subscribing (streaming) all events from the event store (real-time)
+- Fault-tolerant projection system (Projector)
 
 ## Upcoming
 
-Configurable fault-tolerant projection system with offset handling.
+Add offset handling and retry mechanism to the default Projector.
 
 ## Example
 

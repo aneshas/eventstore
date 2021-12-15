@@ -8,11 +8,14 @@ import (
 	"sync"
 )
 
+// EventStreamer represents an event stream that can be subscribed to
+// This package offers EventStore as EventStreamer implementation
 type EventStreamer interface {
 	SubscribeAll(context.Context, ...SubAllOpt) (Subscription, error)
 }
 
-// eg. retry mechanism, error handler...
+// NewProjector constructs a Projector
+// TODO Configure logger, and retry
 func NewProjector(s EventStreamer) *Projector {
 	return &Projector{
 		streamer: s,
@@ -20,18 +23,26 @@ func NewProjector(s EventStreamer) *Projector {
 	}
 }
 
+// Projector is an event projector which will subscribe to an
+// event stream (evet store) and project events to each
+// individual projection in an asynchronous manner
 type Projector struct {
 	streamer    EventStreamer
 	projections []Projection
 	logger      *log.Logger
 }
 
+// Projection represents a projection that should be able to handle
+// projected events
 type Projection func(EventData) error
 
+// Add effectively registers a projection with the projector
+// Make sure to add all of your projections before calling Run
 func (p *Projector) Add(projections ...Projection) {
 	p.projections = append(p.projections, projections...)
 }
 
+// Run will start the projector
 func (p *Projector) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 
@@ -52,7 +63,7 @@ func (p *Projector) Run(ctx context.Context) error {
 
 				defer sub.Close()
 
-				if err := p.run(sub, projection); err != nil {
+				if err := p.run(ctx, sub, projection); err != nil {
 					continue
 				}
 
@@ -66,17 +77,14 @@ func (p *Projector) Run(ctx context.Context) error {
 	return nil
 }
 
-func (p *Projector) run(sub Subscription, projection Projection) error {
+func (p *Projector) run(ctx context.Context, sub Subscription, projection Projection) error {
 	for {
 		select {
 		case data := <-sub.EventData:
 			err := projection(data)
 			if err != nil {
 				p.logErr(err)
-				// Retry
-				// return
-				// Retry then restart the whole projection after retry count is exceeded
-				// (returning an err restarts the whole projection, returning nil exits)
+				// TODO retry with backoff
 
 				return err
 			}
@@ -87,17 +95,15 @@ func (p *Projector) run(sub Subscription, projection Projection) error {
 					break
 				}
 
-				// TODO - Should also exit if ctx is canceled
 				if errors.Is(err, ErrSubscriptionClosedByClient) {
 					return nil
 				}
 
 				p.logErr(err)
-				// Retry
-				// return
-				// Retry then restart the whole projection after retry count is exceeded
-				// (returning an err restarts the whole projection, returning nil exits)
 			}
+
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }

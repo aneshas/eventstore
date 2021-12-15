@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aneshas/eventstore"
 )
@@ -14,6 +15,7 @@ type streamer struct {
 	evts      []interface{}
 	err       error
 	streamErr error
+	noClose   bool
 }
 
 func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt) (eventstore.Subscription, error) {
@@ -40,7 +42,9 @@ func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt
 			sub.Err <- io.EOF
 		}
 
-		sub.Err <- eventstore.ErrSubscriptionClosedByClient
+		if !s.noClose {
+			sub.Err <- eventstore.ErrSubscriptionClosedByClient
+		}
 	}()
 
 	return sub, nil
@@ -142,6 +146,36 @@ func TestShouldRetrySubscriptionIfProjectionFailsToSubscribe(t *testing.T) {
 	)
 
 	p.Run(context.TODO())
+}
+
+func TestShouldExitIfContextIsCanceled(t *testing.T) {
+	evts := []interface{}{
+		SomeEvent{
+			UserID: "user-1",
+		},
+	}
+
+	s := streamer{
+		evts:    evts,
+		noClose: true,
+	}
+
+	p := eventstore.NewProjector(s)
+
+	p.Add(
+		func(ed eventstore.EventData) error {
+			return nil
+		},
+		func(ed eventstore.EventData) error {
+			return nil
+		},
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+
+	defer cancel()
+
+	p.Run(ctx)
 }
 
 func TestShouldContinueProjectingIfStreamingErrorOccurs(t *testing.T) {

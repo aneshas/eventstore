@@ -2,7 +2,7 @@
 
 This example shows a simplistic but typical event-sourcing use case scenario.
 
-It contains a single "aggregate" (Account) that produces a single account opening event, an accompanying repository implementation along with a simple console output projection.
+It contains a single "aggregate" (Account) that produces a single account opening event, an accompanying repository implementation along with a simple console output projection which uses a projector that is included in the eventstore package.
 
 ## How to run
 

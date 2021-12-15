@@ -36,7 +36,7 @@ func checkErr(err error) {
 }
 
 // NewConsoleOutputProjection consutructs an example projection that outputs
-// new accounts to the console. It might as well be any kind of
+// new accounts to the console. It might as well be to any kind of
 // database, disk, memory etc...
 func NewConsoleOutputProjection() eventstore.Projection {
 	return func(data eventstore.EventData) error {
