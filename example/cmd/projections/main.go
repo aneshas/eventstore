@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"log"
 
 	"github.com/aneshas/eventstore"
@@ -22,16 +20,13 @@ func main() {
 
 	defer estore.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	p := eventstore.NewProjector(estore)
 
-	defer cancel()
+	p.Add(
+		NewConsoleOutputProjection(),
+	)
 
-	sub, err := estore.SubscribeAll(ctx)
-	checkErr(err)
-
-	defer sub.Close()
-
-	runConsoleOutputProjection(sub)
+	log.Fatal(p.Run(context.Background()))
 }
 
 func checkErr(err error) {
@@ -40,35 +35,19 @@ func checkErr(err error) {
 	}
 }
 
-// An example projection that outputs new accounts to the console
-// it might as well be any kind of database, disk, memory etc...
-func runConsoleOutputProjection(sub eventstore.Subscription) {
-	for {
-		select {
-		case data := <-sub.EventData:
-			handle(data)
-
-		case err := <-sub.Err:
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					// If there are no more events (indicated by io.EOF)
-					// we choose to break in order to keep the subscription open
-					// so we are notified of new events as they are appended
-					break
-				}
-
-				log.Fatal(err)
-			}
+// NewConsoleOutputProjection consutructs an example projection that outputs
+// new accounts to the console. It might as well be to any kind of
+// database, disk, memory etc...
+func NewConsoleOutputProjection() eventstore.Projection {
+	return func(data eventstore.EventData) error {
+		switch data.Event.(type) {
+		case account.NewAccountOpenned:
+			evt := data.Event.(account.NewAccountOpenned)
+			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.ID, evt.Holder)
+		default:
+			fmt.Println("not interested in this event")
 		}
-	}
-}
 
-func handle(data eventstore.EventData) {
-	switch data.Event.(type) {
-	case account.NewAccountOpenned:
-		evt := data.Event.(account.NewAccountOpenned)
-		fmt.Printf("Account: #%s | Holder: <%s>\n", evt.ID, evt.Holder)
-	default:
-		fmt.Println("not interested in this event")
+		return nil
 	}
 }

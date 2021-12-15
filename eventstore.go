@@ -95,16 +95,18 @@ type gormEvent struct {
 	Meta          string
 }
 
-type appendStreamConfig struct {
+// AppendStreamConfig (configure using AppendStreamOpt)
+type AppendStreamConfig struct {
 	meta map[string]string
 }
 
-type appendStreamOpt func(appendStreamConfig) appendStreamConfig
+// AppendStreamOpt represents append to stream option
+type AppendStreamOpt func(AppendStreamConfig) AppendStreamConfig
 
 // WithMetaData is an AppendStream option that can be used to
 // associate arbitrary meta data to a batch of events to store
-func WithMetaData(meta map[string]string) appendStreamOpt {
-	return func(cfg appendStreamConfig) appendStreamConfig {
+func WithMetaData(meta map[string]string) AppendStreamOpt {
+	return func(cfg AppendStreamConfig) AppendStreamConfig {
 		cfg.meta = meta
 
 		return cfg
@@ -129,7 +131,7 @@ func (es *EventStore) AppendStream(
 	stream string,
 	expectedVer int,
 	evts []interface{},
-	opts ...appendStreamOpt) error {
+	opts ...AppendStreamOpt) error {
 
 	if len(stream) == 0 {
 		return fmt.Errorf("stream name must be provided")
@@ -143,7 +145,7 @@ func (es *EventStore) AppendStream(
 		return fmt.Errorf("please provide at least one event to append")
 	}
 
-	cfg := appendStreamConfig{}
+	cfg := AppendStreamConfig{}
 
 	for _, opt := range opts {
 		cfg = opt(cfg)
@@ -182,17 +184,19 @@ func (es *EventStore) AppendStream(
 	return tx.Error
 }
 
-type subAllConfig struct {
+// SubAllConfig (configure using SubAllOpt)
+type SubAllConfig struct {
 	offset    int
 	batchSize int
 }
 
-type subAllOpt func(subAllConfig) subAllConfig
+// SubAllOpt represents subscribe to all events option
+type SubAllOpt func(SubAllConfig) SubAllConfig
 
 // WithOffset is a subscription / read all option that indicates an offset in
 // the event store from which to start reading events (exclusive)
-func WithOffset(offset int) subAllOpt {
-	return func(cfg subAllConfig) subAllConfig {
+func WithOffset(offset int) SubAllOpt {
+	return func(cfg SubAllConfig) SubAllConfig {
 		cfg.offset = offset
 
 		return cfg
@@ -201,8 +205,8 @@ func WithOffset(offset int) subAllOpt {
 
 // WithBatchSize is a subscription/read all option that specifies the read
 // batch size (limit) when reading events from the event store
-func WithBatchSize(size int) subAllOpt {
-	return func(cfg subAllConfig) subAllConfig {
+func WithBatchSize(size int) SubAllOpt {
+	return func(cfg SubAllConfig) SubAllConfig {
 		cfg.batchSize = size
 
 		return cfg
@@ -226,6 +230,10 @@ type Subscription struct {
 
 // Close closes the subscription and halts the polling of sqldb
 func (s Subscription) Close() {
+	if s.close == nil {
+		return
+	}
+
 	s.close <- struct{}{}
 }
 
@@ -233,7 +241,7 @@ func (s Subscription) Close() {
 // a subscription and depleting it until io.EOF is encountered
 // WARNING: Use with caution as this method will read the entire event store
 // in a blocking fashion (porbably best used in combination with offset option)
-func (es *EventStore) ReadAll(ctx context.Context, opts ...subAllOpt) ([]EventData, error) {
+func (es *EventStore) ReadAll(ctx context.Context, opts ...SubAllOpt) ([]EventData, error) {
 	sub, err := es.SubscribeAll(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -260,8 +268,8 @@ func (es *EventStore) ReadAll(ctx context.Context, opts ...subAllOpt) ([]EventDa
 
 // SubscribeAll will create a subscription which can be used to stream all events in an
 // orderly fashion. This mechanism should probably be mostly useful for building projections
-func (es *EventStore) SubscribeAll(ctx context.Context, opts ...subAllOpt) (Subscription, error) {
-	cfg := subAllConfig{
+func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subscription, error) {
+	cfg := SubAllConfig{
 		offset:    0,
 		batchSize: 100,
 	}
