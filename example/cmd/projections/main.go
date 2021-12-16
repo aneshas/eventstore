@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore/example/account"
@@ -24,6 +27,7 @@ func main() {
 
 	p.Add(
 		NewConsoleOutputProjection(),
+		NewJSONFileProjection("accounts.json"),
 	)
 
 	log.Fatal(p.Run(context.Background()))
@@ -50,4 +54,42 @@ func NewConsoleOutputProjection() eventstore.Projection {
 
 		return nil
 	}
+}
+
+// NewJSONFileProjection makes use of flush after projection in order to
+// periodically write accounts to a json file on disk
+func NewJSONFileProjection(fname string) eventstore.Projection {
+	var accounts []string
+
+	return eventstore.FlushAfter(
+		func(data eventstore.EventData) error {
+			switch data.Event.(type) {
+			case account.NewAccountOpenned:
+				evt := data.Event.(account.NewAccountOpenned)
+				accounts = append(accounts, fmt.Sprintf("Account: #%s | Holder: <%s>", evt.ID, evt.Holder))
+			default:
+				fmt.Println("not interested in this event")
+			}
+
+			return nil
+		},
+		func() error {
+			if len(accounts) == 0 {
+				return nil
+			}
+
+			data, err := json.Marshal(accounts)
+			if err != nil {
+				return err
+			}
+
+			err = os.WriteFile(fname, data, os.ModeAppend|os.ModePerm)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+		200*time.Millisecond,
+	)
 }

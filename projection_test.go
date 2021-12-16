@@ -214,3 +214,55 @@ func TestShouldContinueProjectingIfStreamingErrorOccurs(t *testing.T) {
 		t.Fatal("projection should have caught up after erroring out")
 	}
 }
+
+func TestShouldFlushProjection(t *testing.T) {
+	evts := []interface{}{
+		SomeEvent{
+			UserID: "user-1",
+		},
+		SomeEvent{
+			UserID: "user-2",
+		},
+		SomeEvent{
+			UserID: "user-3",
+		},
+	}
+
+	s := streamer{
+		evts: evts,
+	}
+
+	p := eventstore.NewProjector(s)
+
+	var got []interface{}
+
+	called := false
+
+	p.Add(
+		eventstore.FlushAfter(
+			func(ed eventstore.EventData) error {
+				got = append(got, ed.Event)
+
+				return nil
+			},
+			func() error {
+				called = true
+
+				return nil
+			},
+			200*time.Millisecond,
+		),
+	)
+
+	p.Run(context.TODO())
+
+	<-time.After(300 * time.Millisecond)
+
+	if !reflect.DeepEqual(got, evts) {
+		t.Fatal("projection should have received all events")
+	}
+
+	if !called {
+		t.Fatal("flush should have been called")
+	}
+}
