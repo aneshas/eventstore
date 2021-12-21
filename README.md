@@ -24,4 +24,4 @@ Add offset handling and retry mechanism to the default Projector.
 
 ## Example
 
-I provided a simple [example](example/README.md) that showcases basic usage.
+I provided a simple [example](example/) that showcases basic usage.
