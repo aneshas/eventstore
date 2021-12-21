@@ -16,7 +16,7 @@ type EventStreamer interface {
 }
 
 // NewProjector constructs a Projector
-// TODO Configure logger, and retry
+// TODO Configure logger, pollInterval, and retry
 func NewProjector(s EventStreamer) *Projector {
 	return &Projector{
 		streamer: s,
@@ -120,28 +120,33 @@ func FlushAfter(
 	p Projection,
 	flush func() error,
 	flushInt time.Duration) Projection {
-	var err error
-
-	work := make(chan EventData)
+	work := make(chan EventData, 1)
+	errors := make(chan error, 2)
 
 	go func() {
 		for {
 			select {
 			case <-time.After(flushInt):
-				err = flush()
+				if err := flush(); err != nil {
+					errors <- err
+				}
 
 			case w := <-work:
-				err = p(w)
+				if err := p(w); err != nil {
+					errors <- err
+				}
 			}
 		}
 	}()
 
 	return func(data EventData) error {
-		if err != nil {
+		select {
+		case err := <-errors:
 			return err
-		}
 
-		work <- data
+		default:
+			work <- data
+		}
 
 		return nil
 	}

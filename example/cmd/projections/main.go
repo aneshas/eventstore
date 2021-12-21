@@ -90,6 +90,6 @@ func NewJSONFileProjection(fname string) eventstore.Projection {
 
 			return nil
 		},
-		200*time.Millisecond,
+		3*time.Second,
 	)
 }

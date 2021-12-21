@@ -226,7 +226,11 @@ func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sub, err := es.SubscribeAll(ctx, eventstore.WithOffset(1))
+	sub, err := es.SubscribeAll(
+		ctx,
+		eventstore.WithOffset(1),
+		eventstore.WithPollInterval(50*time.Millisecond),
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

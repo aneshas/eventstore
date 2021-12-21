@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ type streamer struct {
 	err       error
 	streamErr error
 	noClose   bool
+	delay     *time.Duration
 }
 
 func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt) (eventstore.Subscription, error) {
@@ -29,6 +31,10 @@ func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt
 	}
 
 	go func() {
+		if s.delay != nil {
+			time.Sleep(*s.delay)
+		}
+
 		for _, evt := range s.evts {
 			sub.EventData <- eventstore.EventData{
 				Event: evt,
@@ -228,12 +234,16 @@ func TestShouldFlushProjection(t *testing.T) {
 		},
 	}
 
+	d := 500 * time.Millisecond
+
 	s := streamer{
-		evts: evts,
+		evts:  evts,
+		delay: &d,
 	}
 
 	p := eventstore.NewProjector(s)
 
+	var m sync.Mutex
 	var got []interface{}
 
 	called := false
@@ -241,11 +251,17 @@ func TestShouldFlushProjection(t *testing.T) {
 	p.Add(
 		eventstore.FlushAfter(
 			func(ed eventstore.EventData) error {
+				m.Lock()
+				defer m.Unlock()
+
 				got = append(got, ed.Event)
 
 				return nil
 			},
 			func() error {
+				m.Lock()
+				defer m.Unlock()
+
 				called = true
 
 				return nil
@@ -256,7 +272,10 @@ func TestShouldFlushProjection(t *testing.T) {
 
 	p.Run(context.TODO())
 
-	<-time.After(300 * time.Millisecond)
+	<-time.After(1000 * time.Millisecond)
+
+	m.Lock()
+	defer m.Unlock()
 
 	if !reflect.DeepEqual(got, evts) {
 		t.Fatal("projection should have received all events")
