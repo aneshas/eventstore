@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 )
 
 // EventStreamer represents an event stream that can be subscribed to
@@ -15,7 +16,7 @@ type EventStreamer interface {
 }
 
 // NewProjector constructs a Projector
-// TODO Configure logger, and retry
+// TODO Configure logger, pollInterval, and retry
 func NewProjector(s EventStreamer) *Projector {
 	return &Projector{
 		streamer: s,
@@ -110,4 +111,43 @@ func (p *Projector) run(ctx context.Context, sub Subscription, projection Projec
 
 func (p *Projector) logErr(err error) {
 	p.logger.Printf("projector error: %v", err)
+}
+
+// FlushAfter wraps the projection passed in and it calls
+// the projection itself as new events come (as usual) in addition to calling
+// the provided flush function periodically each time flush interval expires
+func FlushAfter(
+	p Projection,
+	flush func() error,
+	flushInt time.Duration) Projection {
+	work := make(chan EventData, 1)
+	errors := make(chan error, 2)
+
+	go func() {
+		for {
+			select {
+			case <-time.After(flushInt):
+				if err := flush(); err != nil {
+					errors <- err
+				}
+
+			case w := <-work:
+				if err := p(w); err != nil {
+					errors <- err
+				}
+			}
+		}
+	}()
+
+	return func(data EventData) error {
+		select {
+		case err := <-errors:
+			return err
+
+		default:
+			work <- data
+		}
+
+		return nil
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/mattn/go-sqlite3"
 	"gorm.io/driver/sqlite"
@@ -186,8 +187,9 @@ func (es *EventStore) AppendStream(
 
 // SubAllConfig (configure using SubAllOpt)
 type SubAllConfig struct {
-	offset    int
-	batchSize int
+	offset       int
+	batchSize    int
+	pollInterval time.Duration
 }
 
 // SubAllOpt represents subscribe to all events option
@@ -208,6 +210,16 @@ func WithOffset(offset int) SubAllOpt {
 func WithBatchSize(size int) SubAllOpt {
 	return func(cfg SubAllConfig) SubAllConfig {
 		cfg.batchSize = size
+
+		return cfg
+	}
+}
+
+// WithPollInterval is a subscription/read all option that specifies the poolling
+// interval of the underlying sqlite database
+func WithPollInterval(d time.Duration) SubAllOpt {
+	return func(cfg SubAllConfig) SubAllConfig {
+		cfg.pollInterval = d
 
 		return cfg
 	}
@@ -270,8 +282,9 @@ func (es *EventStore) ReadAll(ctx context.Context, opts ...SubAllOpt) ([]EventDa
 // orderly fashion. This mechanism should probably be mostly useful for building projections
 func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subscription, error) {
 	cfg := SubAllConfig{
-		offset:    0,
-		batchSize: 100,
+		offset:       0,
+		batchSize:    100,
+		pollInterval: 100 * time.Millisecond,
 	}
 
 	for _, opt := range opts {
@@ -301,7 +314,7 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 				sub.Err <- ctx.Err()
 
 				return
-			default:
+			case <-time.After(cfg.pollInterval):
 				// Make sure client reads all buffered events
 				if done != nil {
 					if len(sub.EventData) != 0 {

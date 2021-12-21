@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ type streamer struct {
 	err       error
 	streamErr error
 	noClose   bool
+	delay     *time.Duration
 }
 
 func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt) (eventstore.Subscription, error) {
@@ -29,6 +31,10 @@ func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt
 	}
 
 	go func() {
+		if s.delay != nil {
+			time.Sleep(*s.delay)
+		}
+
 		for _, evt := range s.evts {
 			sub.EventData <- eventstore.EventData{
 				Event: evt,
@@ -212,5 +218,70 @@ func TestShouldContinueProjectingIfStreamingErrorOccurs(t *testing.T) {
 
 	if !reflect.DeepEqual(got, evts) {
 		t.Fatal("projection should have caught up after erroring out")
+	}
+}
+
+func TestShouldFlushProjection(t *testing.T) {
+	evts := []interface{}{
+		SomeEvent{
+			UserID: "user-1",
+		},
+		SomeEvent{
+			UserID: "user-2",
+		},
+		SomeEvent{
+			UserID: "user-3",
+		},
+	}
+
+	d := 500 * time.Millisecond
+
+	s := streamer{
+		evts:  evts,
+		delay: &d,
+	}
+
+	p := eventstore.NewProjector(s)
+
+	var m sync.Mutex
+	var got []interface{}
+
+	called := false
+
+	p.Add(
+		eventstore.FlushAfter(
+			func(ed eventstore.EventData) error {
+				m.Lock()
+				defer m.Unlock()
+
+				got = append(got, ed.Event)
+
+				return nil
+			},
+			func() error {
+				m.Lock()
+				defer m.Unlock()
+
+				called = true
+
+				return nil
+			},
+			200*time.Millisecond,
+		),
+	)
+
+	p.Run(context.TODO())
+
+	<-time.After(1000 * time.Millisecond)
+
+	m.Lock()
+	defer m.Unlock()
+
+	if !reflect.DeepEqual(got, evts) {
+		t.Fatal("projection should have received all events")
+	}
+
+	if !called {
+		t.Fatal("flush should have been called")
 	}
 }
