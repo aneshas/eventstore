@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -635,28 +634,13 @@ func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 }
 
 func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventStore, func()) {
-	file, err := os.CreateTemp(os.TempDir(), "es-db-*")
-	if err != nil {
-		t.Fatalf("could not create tem file: %v", err)
-	}
-
-	es, err := eventstore.New(file.Name(), enc)
+	es, err := eventstore.New("file::memory:?cache=shared", enc)
 	if err != nil {
 		t.Fatalf("error creating es: %v", err)
 	}
 
-	err = file.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	return es, func() {
 		err := es.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = os.Remove(file.Name())
 		if err != nil {
 			t.Fatal(err)
 		}
