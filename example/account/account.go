@@ -40,9 +40,7 @@ type Account struct {
 }
 
 // OnNewAccountOpenned event handler
-func (a *Account) OnNewAccountOpenned(evt NewAccountOpenned) error {
+func (a *Account) OnNewAccountOpenned(evt NewAccountOpenned) {
 	a.ID = evt.ID
 	a.holder = evt.Holder
-
-	return nil
 }

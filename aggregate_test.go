@@ -27,26 +27,18 @@ type testAggregate struct {
 	email string
 }
 
-func (ta *testAggregate) OnaggrCreated(event aggrCreated) error {
+func (ta *testAggregate) OnaggrCreated(event aggrCreated) {
 	ta.name = event.Name()
 	ta.email = event.Email()
-
-	return nil
 }
 
-func (ta *testAggregate) OnnameUpdated(event nameUpdated) error {
+func (ta *testAggregate) OnnameUpdated(event nameUpdated) {
 	ta.name = event.NewName()
-
-	return nil
 }
 
 var errTest = errors.New("an error")
 
-func (ta *testAggregate) OnerroredOut(event erroredOut) error {
-	return errTest
-}
-
-func (ta *testAggregate) OnwrongHandler(event wrongHandler) {
+func (ta *testAggregate) OnwrongHandler(event wrongHandler, n int) {
 }
 
 func (e *aggrCreated) Name() string  { return e.name }
@@ -88,28 +80,6 @@ func TestShouldInitAggregate(t *testing.T) {
 	}
 }
 
-func TestShouldPropagateEventHandlerError(t *testing.T) {
-	aggr := testAggregate{}
-
-	aggr.Init(&aggr)
-
-	err := aggr.Apply(erroredOut{})
-	if !errors.Is(err, errTest) {
-		t.Fatal("event handler error should propagate")
-	}
-}
-
-func TestShouldErrorOutIfHandlerHasNoReturnError(t *testing.T) {
-	aggr := testAggregate{}
-
-	aggr.Init(&aggr)
-
-	err := aggr.Apply(wrongHandler{})
-	if err == nil {
-		t.Fatal("should error out on wrong handler signature")
-	}
-}
-
 func TestShouldErrorOutOnMissingHandler(t *testing.T) {
 	aggr := testAggregate{}
 
@@ -118,15 +88,6 @@ func TestShouldErrorOutOnMissingHandler(t *testing.T) {
 	err := aggr.Apply(missingHandler{})
 	if err == nil {
 		t.Fatal("should error out on missing event handler")
-	}
-}
-
-func TestInitPropagatesError(t *testing.T) {
-	aggr := testAggregate{}
-
-	err := aggr.Init(&aggr, erroredOut{})
-	if !errors.Is(err, errTest) {
-		t.Fatal("event handler error should propagate")
 	}
 }
 

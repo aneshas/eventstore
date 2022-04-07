@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aneshas/eventstore"
+	"gorm.io/driver/sqlite"
 )
 
 var integration = flag.Bool("integration", false, "perform integration tests")
@@ -547,7 +548,7 @@ func TestEncoderDecodeErrorsPropagatedOnSubscribeAll(t *testing.T) {
 	}
 }
 func TestNewEncoderMustBeProvided(t *testing.T) {
-	_, err := eventstore.New("foo", nil)
+	_, err := eventstore.New(nil, nil)
 	if err == nil {
 		t.Fatal("encoder must be provided")
 	}
@@ -634,7 +635,7 @@ func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 }
 
 func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventStore, func()) {
-	es, err := eventstore.New("file::memory:?cache=shared", enc)
+	es, err := eventstore.New(sqlite.Open("file::memory:?cache=shared"), enc)
 	if err != nil {
 		t.Fatalf("error creating es: %v", err)
 	}

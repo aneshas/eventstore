@@ -82,17 +82,9 @@ func (a *AggregateRoot) mutate(evt interface{}) error {
 		return fmt.Errorf("missing aggregate event handler method: %s", hname)
 	}
 
-	results := h.Call([]reflect.Value{
+	h.Call([]reflect.Value{
 		reflect.ValueOf(evt),
 	})
-
-	if len(results) == 0 {
-		return fmt.Errorf("event handler should return an error")
-	}
-
-	if err, ok := results[0].Interface().(error); ok {
-		return err
-	}
 
 	return nil
 }

@@ -10,11 +10,12 @@ import (
 
 	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore/example/account"
+	"gorm.io/driver/sqlite"
 )
 
 func main() {
 	estore, err := eventstore.New(
-		"exampledb",
+		sqlite.Open("exampledb"),
 		eventstore.NewJSONEncoder(
 			account.NewAccountOpenned{},
 		),

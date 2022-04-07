@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/mattn/go-sqlite3"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
@@ -52,12 +51,12 @@ type EventData struct {
 // New construct new event store
 // dbname - a path to sqlite database on disk
 // enc - a specific encoder implementation (see bundled JsonEncoder)
-func New(dbname string, enc Encoder) (*EventStore, error) {
+func New(dial gorm.Dialector, enc Encoder) (*EventStore, error) {
 	if enc == nil {
 		return nil, fmt.Errorf("encoder implementation must be provided")
 	}
 
-	db, err := gorm.Open(sqlite.Open(dbname), &gorm.Config{})
+	db, err := gorm.Open(dial, &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
