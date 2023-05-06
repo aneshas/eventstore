@@ -4,11 +4,8 @@
 [![Coverage Status](https://coveralls.io/repos/github/aneshas/eventstore/badge.svg)](https://coveralls.io/github/aneshas/eventstore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aneshas/eventstore)](https://goreportcard.com/report/github.com/aneshas/eventstore)
 
-Embeddable eventstore implementation written in Go using sqlite as an underlying persistence mechanism.
-
-## Why sqlite?
-
-In the future I might choose to abstract the persistence mechanism away and add more options such as bolt or smth, but for now, I decided to go with sqlite because I think it does the job well and especially now that we have [litestream](https://github.com/benbjohnson/litestream) thanks to the amazing @benbjohnson it becomes even more flexible.
+Embeddable EventStore implementation written in Go using gorm as an underlying persistence mechanism meaning it will work
+with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver).
 
 ## Features
 
@@ -24,4 +21,4 @@ Add offset handling and retry mechanism to the default Projector.
 
 ## Example
 
-I provided a simple [example](example/) that showcases basic usage.
+I provided a simple [example](example/) that showcases basic usage with sqlite.

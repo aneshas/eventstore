@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/aneshas/eventstore/example/account"
+	"github.com/aneshas/eventstore-example/account"
 )
 
 // NewOpenAccountHandlerFunc creates new account openning endpoint example
@@ -19,6 +19,7 @@ func NewOpenAccountHandlerFunc(store *AccountStore) http.HandlerFunc {
 			fmt.Fprintf(rw, "error: %v", err)
 		}
 
+		err = store.Save(r.Context(), acc)
 		err = store.Save(r.Context(), acc)
 		if err != nil {
 			fmt.Fprintf(rw, "error: %v", err)

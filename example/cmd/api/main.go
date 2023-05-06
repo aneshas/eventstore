@@ -1,20 +1,20 @@
 package main
 
 import (
+	"gorm.io/driver/sqlite"
 	"log"
 	"net/http"
 
 	"github.com/aneshas/eventstore"
-	"github.com/aneshas/eventstore/example"
-	"github.com/aneshas/eventstore/example/account"
-	"gorm.io/driver/sqlite"
+	"github.com/aneshas/eventstore-example"
+	"github.com/aneshas/eventstore-example/account"
 )
 
 func main() {
 	estore, err := eventstore.New(
 		sqlite.Open("exampledb"),
 		eventstore.NewJSONEncoder(
-			account.NewAccountOpenned{},
+			account.NewAccountOpened{},
 		),
 	)
 	checkErr(err)

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/aneshas/eventstore"
-	"github.com/aneshas/eventstore/example/account"
+	"github.com/aneshas/eventstore-example/account"
 )
 
 // NewAccountStore constructs new account repository

@@ -61,12 +61,10 @@ func New(dial gorm.Dialector, enc Encoder) (*EventStore, error) {
 		return nil, err
 	}
 
-	db.AutoMigrate(&gormEvent{})
-
 	return &EventStore{
 		db:  db,
 		enc: enc,
-	}, nil
+	}, db.AutoMigrate(&gormEvent{})
 }
 
 // EventStore represents a sqlite event store implementation
@@ -94,6 +92,9 @@ type gormEvent struct {
 	Data          string
 	Meta          string
 }
+
+// TableName returns gorm table name
+func (ge *gormEvent) TableName() string { return "events" }
 
 // AppendStreamConfig (configure using AppendStreamOpt)
 type AppendStreamConfig struct {
@@ -177,7 +178,13 @@ func (es *EventStore) AppendStream(
 
 	tx := es.db.Create(&events)
 
-	if e, ok := tx.Error.(sqlite3.Error); ok && e.Code == 19 {
+	err = tx.Error
+
+	if e, ok := err.(sqlite3.Error); ok && e.Code == 19 {
+		return ErrConcurrencyCheckFailed
+	}
+
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return ErrConcurrencyCheckFailed
 	}
 

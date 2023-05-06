@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/aneshas/eventstore"
-	"github.com/aneshas/eventstore/example/account"
+	"github.com/aneshas/eventstore-example/account"
 	"gorm.io/driver/sqlite"
 )
 
@@ -17,7 +17,7 @@ func main() {
 	estore, err := eventstore.New(
 		sqlite.Open("exampledb"),
 		eventstore.NewJSONEncoder(
-			account.NewAccountOpenned{},
+			account.NewAccountOpened{},
 		),
 	)
 	checkErr(err)
@@ -46,8 +46,8 @@ func checkErr(err error) {
 func NewConsoleOutputProjection() eventstore.Projection {
 	return func(data eventstore.EventData) error {
 		switch data.Event.(type) {
-		case account.NewAccountOpenned:
-			evt := data.Event.(account.NewAccountOpenned)
+		case account.NewAccountOpened:
+			evt := data.Event.(account.NewAccountOpened)
 			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.ID, evt.Holder)
 		default:
 			fmt.Println("not interested in this event")
@@ -65,8 +65,8 @@ func NewJSONFileProjection(fname string) eventstore.Projection {
 	return eventstore.FlushAfter(
 		func(data eventstore.EventData) error {
 			switch data.Event.(type) {
-			case account.NewAccountOpenned:
-				evt := data.Event.(account.NewAccountOpenned)
+			case account.NewAccountOpened:
+				evt := data.Event.(account.NewAccountOpened)
 				accounts = append(accounts, fmt.Sprintf("Account: #%s | Holder: <%s>", evt.ID, evt.Holder))
 			default:
 				fmt.Println("not interested in this event")

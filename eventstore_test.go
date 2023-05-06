@@ -5,13 +5,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"gorm.io/driver/sqlite"
 	"io"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aneshas/eventstore"
-	"gorm.io/driver/sqlite"
 )
 
 var integration = flag.Bool("integration", false, "perform integration tests")

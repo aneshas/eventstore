@@ -6,7 +6,7 @@ import (
 )
 
 // AggregateRoot represents reusable DDD Event Sourcing friendly Aggregate
-// base type which provides helpers for easy aggregate intialization and
+// base type which provides helpers for easy aggregate initialization and
 // event handler execution
 type AggregateRoot struct {
 	version      int
@@ -74,12 +74,12 @@ func (a *AggregateRoot) Apply(evts ...interface{}) error {
 func (a *AggregateRoot) mutate(evt interface{}) error {
 	ev := reflect.TypeOf(evt)
 
-	hname := fmt.Sprintf("On%s", ev.Name())
+	hName := fmt.Sprintf("On%s", ev.Name())
 
-	h := a.aggrPtr.MethodByName(hname)
+	h := a.aggrPtr.MethodByName(hName)
 
 	if !h.IsValid() {
-		return fmt.Errorf("missing aggregate event handler method: %s", hname)
+		return fmt.Errorf("missing aggregate event handler method: %s", hName)
 	}
 
 	h.Call([]reflect.Value{

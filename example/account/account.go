@@ -12,7 +12,7 @@ func New(id, holder string) (*Account, error) {
 	}
 
 	err = acc.Apply(
-		NewAccountOpenned{
+		NewAccountOpened{
 			ID:     id,
 			Holder: holder,
 		},
@@ -24,9 +24,9 @@ func New(id, holder string) (*Account, error) {
 	return &acc, err
 }
 
-// NewAccountOpenned domain event indicates that new
-// account has been openned
-type NewAccountOpenned struct {
+// NewAccountOpened domain event indicates that new
+// account has been opened
+type NewAccountOpened struct {
 	ID     string
 	Holder string
 }
@@ -39,8 +39,8 @@ type Account struct {
 	holder string
 }
 
-// OnNewAccountOpenned event handler
-func (a *Account) OnNewAccountOpenned(evt NewAccountOpenned) {
+// OnNewAccountOpened event handler
+func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
 	a.ID = evt.ID
 	a.holder = evt.Holder
 }
