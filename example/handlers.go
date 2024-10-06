@@ -2,6 +2,7 @@ package example
 
 import (
 	"fmt"
+	"github.com/aneshas/eventstore/aggregate"
 	"math/rand"
 	"net/http"
 	"time"
@@ -10,7 +11,7 @@ import (
 )
 
 // NewOpenAccountHandlerFunc creates new account openning endpoint example
-func NewOpenAccountHandlerFunc(store *AccountStore) http.HandlerFunc {
+func NewOpenAccountHandlerFunc(store *aggregate.Store[*account.Account]) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		id := fmt.Sprintf("%d-%d", time.Now().Unix(), rand.Int())
 

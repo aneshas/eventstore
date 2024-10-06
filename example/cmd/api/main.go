@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/aneshas/eventstore/aggregate"
 	"log"
 	"net/http"
 
@@ -20,7 +21,7 @@ func main() {
 
 	defer estore.Close()
 
-	store := example.NewAccountStore(estore)
+	store := aggregate.NewStore[*account.Account](estore)
 
 	http.Handle(
 		"/accounts/open",

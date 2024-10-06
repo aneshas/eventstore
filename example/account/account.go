@@ -12,21 +12,24 @@ func New(id, holder string) (*Account, error) {
 
 	acc.Apply(
 		NewAccountOpened{
-			ID:     id,
-			Holder: holder,
+			AccountID: id,
+			Holder:    holder,
 		},
 	)
 
 	return &acc, nil
 }
 
+// ID represents an account ID
 type ID string
+
+// String implements fmt.Stringer
+func (id ID) String() string { return string(id) }
 
 // Account represents an account aggregate
 type Account struct {
 	aggregate.Root[ID]
 
-	ID      string
 	holder  string
 	balance int
 }
@@ -34,16 +37,23 @@ type Account struct {
 // Deposit money
 func (a *Account) Deposit(amount int) {
 	a.Apply(
-		// TODO - Add ApplyMeta
-		// internally Events() always should contain EventsToStore ?
-		DepositMade{Amount: amount},
+		// TODO - From aggregate we should always set the event ID
+		// and occurred on ?
+		// or
+		//
+		// Apply always sets ID and occured on internally
+		// Provide alternate Apply with IDs, OccuredOn - make this one accept single event (bcs of id)
+		// and others (correlation, meta, pass through context)
+
+		DepositMade{
+			Amount: amount,
+		},
 	)
 }
 
 // OnNewAccountOpened handler
-// TODO - add second parameter
 func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
-	a.ID = evt.ID
+	a.SetID(ID(evt.AccountID))
 	a.holder = evt.Holder
 }
 

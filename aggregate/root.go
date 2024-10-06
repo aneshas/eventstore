@@ -3,6 +3,7 @@ package aggregate
 import (
 	"fmt"
 	"reflect"
+	"time"
 )
 
 var (
@@ -17,20 +18,38 @@ var (
 	ErrAggregateRootNotRehydrated = fmt.Errorf("aggregate needs to be rehydrated")
 )
 
+// Rooter represents an aggregate root interface
+type Rooter interface {
+	ID() string
+	Events() []Event
+	Version() int
+	Rehydrate(acc any, events ...Event)
+}
+
 // Root represents reusable DDD Event Sourcing friendly Aggregate
 // base type which provides helpers for easy aggregate initialization and
 // event handler execution
-type Root[T any] struct {
-	ID T
+type Root[T fmt.Stringer] struct {
+	id T
 
 	version      int
-	domainEvents []any
+	domainEvents []Event
 
 	ptr reflect.Value
 }
 
+// SetID sets aggregate ID
+func (a *Root[T]) SetID(id T) {
+	a.id = id
+}
+
+// ID returns aggregate ID
+func (a *Root[T]) ID() string {
+	return a.id.String()
+}
+
 // Rehydrate is used to construct and rehydrate the aggregate from events
-func (a *Root[T]) Rehydrate(aggregatePtr any, events ...any) {
+func (a *Root[T]) Rehydrate(aggregatePtr any, events ...Event) {
 	a.ptr = reflect.ValueOf(aggregatePtr)
 
 	if a.ptr.Kind() != reflect.Ptr {
@@ -42,7 +61,6 @@ func (a *Root[T]) Rehydrate(aggregatePtr any, events ...any) {
 
 		a.version++
 	}
-
 }
 
 // Version returns current version of the aggregate (incremented every time
@@ -50,9 +68,9 @@ func (a *Root[T]) Rehydrate(aggregatePtr any, events ...any) {
 func (a *Root[T]) Version() int { return a.version }
 
 // Events returns uncommitted domain events (produced by calling Apply)
-func (a *Root[T]) Events() []any {
+func (a *Root[T]) Events() []Event {
 	if a.domainEvents == nil {
-		return []any{}
+		return []Event{}
 	}
 
 	return a.domainEvents
@@ -72,28 +90,35 @@ func (a *Root[T]) Apply(events ...any) {
 	}
 
 	for _, evt := range events {
-		a.mutate(evt)
+		e := Event{
+			ID:         "TODO-Autogenerate",
+			E:          evt,
+			OccurredOn: time.Now().UTC(),
+		}
 
-		a.appendEvent(evt)
+		a.mutate(e)
+		a.appendEvent(e)
 	}
 }
 
-func (a *Root[T]) mutate(evt any) {
-	ev := reflect.TypeOf(evt)
+func (a *Root[T]) mutate(evt Event) {
+	ev := reflect.TypeOf(evt.E)
 
 	hName := fmt.Sprintf("On%s", ev.Name())
 
 	h := a.ptr.MethodByName(hName)
+
+	// TODO - Add alternate method also
 
 	if !h.IsValid() {
 		panic(ErrMissingAggregateEventHandler)
 	}
 
 	h.Call([]reflect.Value{
-		reflect.ValueOf(evt),
+		reflect.ValueOf(evt.E),
 	})
 }
 
-func (a *Root[T]) appendEvent(evt any) {
+func (a *Root[T]) appendEvent(evt Event) {
 	a.domainEvents = append(a.domainEvents, evt)
 }

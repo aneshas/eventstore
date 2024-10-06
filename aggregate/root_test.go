@@ -20,6 +20,9 @@ type missingHandler struct{}
 
 type id string
 
+// String implements fmt.Stringer
+func (id) String() string { return "id" }
+
 type testAggregate struct {
 	aggregate.Root[id]
 
@@ -70,8 +73,8 @@ func TestShouldInitAggregate(t *testing.T) {
 
 	a.Rehydrate(
 		&a,
-		created{"john", "john@email.com"},
-		nameUpdated{"max"},
+		aggregate.Event{E: created{"john", "john@email.com"}},
+		aggregate.Event{E: nameUpdated{"max"}},
 	)
 
 	a.Apply(nameUpdated{"jane"})

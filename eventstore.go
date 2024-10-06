@@ -160,18 +160,6 @@ const (
 	InitialStreamVersion int = 0
 )
 
-// EventToStore represents an event that is to be stored in the event store
-type EventToStore struct {
-	// TODO - if you keep this, remove metadata and correlation options
-	Event any
-
-	// Optional
-	ID                 string
-	CausationEventID   string
-	CorrelationEventID string
-	Meta               map[string]string
-}
-
 // AppendStream will encode provided event slice and try to append them to
 // an indicated stream. If the stream does not exist it will be created.
 // If the stream already exists an optimistic concurrency check will be performed
@@ -213,6 +201,7 @@ func (es *EventStore) AppendStream(
 			Data:          encoded.Data,
 			StreamID:      stream,
 			StreamVersion: expectedVer,
+			OccurredOn:    evt.OccurredOn,
 		}
 
 		if evt.CorrelationEventID != "" {
@@ -243,6 +232,10 @@ func (es *EventStore) AppendStream(
 			event.ID = uuid.String()
 		}
 
+		if !event.OccurredOn.IsZero() {
+			event.OccurredOn = time.Now().UTC()
+		}
+
 		eventsToSave[i] = event
 	}
 
@@ -250,6 +243,8 @@ func (es *EventStore) AppendStream(
 
 	err := tx.Error
 
+	// TODO - this is a bit of a hack - we should probably check for the error code or smth
+	// check postgres also
 	if e, ok := err.(sqlite3.Error); ok && e.Code == 19 {
 		return ErrConcurrencyCheckFailed
 	}
@@ -323,21 +318,6 @@ func (s Subscription) Close() {
 	}
 
 	s.close <- struct{}{}
-}
-
-// StoredEvent holds stored event data and meta data
-type StoredEvent struct {
-	Event any
-	Meta  map[string]string
-
-	ID                 string
-	Sequence           uint64
-	Type               string
-	CausationEventID   *string
-	CorrelationEventID *string
-	StreamID           string
-	StreamVersion      int
-	OccurredOn         time.Time
 }
 
 // ReadAll will read all events from the event store by internally creating a
