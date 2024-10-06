@@ -35,7 +35,7 @@ type Projector struct {
 
 // Projection represents a projection that should be able to handle
 // projected events
-type Projection func(EventData) error
+type Projection func(StoredEvent) error
 
 // Add effectively registers a projection with the projector
 // Make sure to add all of your projections before calling Run
@@ -120,7 +120,7 @@ func FlushAfter(
 	p Projection,
 	flush func() error,
 	flushInt time.Duration) Projection {
-	work := make(chan EventData, 1)
+	work := make(chan StoredEvent, 1)
 	errors := make(chan error, 2)
 
 	go func() {
@@ -139,7 +139,7 @@ func FlushAfter(
 		}
 	}()
 
-	return func(data EventData) error {
+	return func(data StoredEvent) error {
 		select {
 		case err := <-errors:
 			return err

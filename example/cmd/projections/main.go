@@ -44,7 +44,7 @@ func checkErr(err error) {
 // new accounts to the console. It might as well be to any kind of
 // database, disk, memory etc...
 func NewConsoleOutputProjection() eventstore.Projection {
-	return func(data eventstore.EventData) error {
+	return func(data eventstore.StoredEvent) error {
 		switch data.Event.(type) {
 		case account.NewAccountOpened:
 			evt := data.Event.(account.NewAccountOpened)
@@ -63,7 +63,7 @@ func NewJSONFileProjection(fname string) eventstore.Projection {
 	var accounts []string
 
 	return eventstore.FlushAfter(
-		func(data eventstore.EventData) error {
+		func(data eventstore.StoredEvent) error {
 			switch data.Event.(type) {
 			case account.NewAccountOpened:
 				evt := data.Event.(account.NewAccountOpened)

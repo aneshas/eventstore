@@ -8,12 +8,12 @@ import (
 
 // NewJSONEncoder constructs json encoder
 // It receives a slice of event types it should be able to encode/decode
-func NewJSONEncoder(evts ...interface{}) *JsonEncoder {
+func NewJSONEncoder(events ...any) *JsonEncoder {
 	enc := JsonEncoder{
 		types: make(map[string]reflect.Type),
 	}
 
-	for _, evt := range evts {
+	for _, evt := range events {
 		t := reflect.TypeOf(evt)
 		enc.types[t.Name()] = t
 	}
@@ -28,7 +28,7 @@ type JsonEncoder struct {
 }
 
 // Encode marshals incoming event to it's json representation
-func (e *JsonEncoder) Encode(evt interface{}) (*EncodedEvt, error) {
+func (e *JsonEncoder) Encode(evt any) (*EncodedEvt, error) {
 	data, err := json.Marshal(evt)
 	if err != nil {
 		return nil, err
@@ -40,8 +40,8 @@ func (e *JsonEncoder) Encode(evt interface{}) (*EncodedEvt, error) {
 	}, nil
 }
 
-// Decode unmarshals incoming event to it's corresponding go type
-func (e *JsonEncoder) Decode(evt *EncodedEvt) (interface{}, error) {
+// Decode decodes incoming event to it's corresponding go type
+func (e *JsonEncoder) Decode(evt *EncodedEvt) (any, error) {
 	t, ok := e.types[evt.Type]
 	if !ok {
 		return nil, fmt.Errorf("event not registered via NewJSONEncoder")

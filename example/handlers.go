@@ -20,7 +20,6 @@ func NewOpenAccountHandlerFunc(store *AccountStore) http.HandlerFunc {
 		}
 
 		err = store.Save(r.Context(), acc)
-		err = store.Save(r.Context(), acc)
 		if err != nil {
 			fmt.Fprintf(rw, "error: %v", err)
 		}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"gorm.io/driver/sqlite"
 	"log"
 	"net/http"
 
@@ -12,10 +11,10 @@ import (
 
 func main() {
 	estore, err := eventstore.New(
-		sqlite.Open("exampledb"),
 		eventstore.NewJSONEncoder(
 			account.NewAccountOpened{},
 		),
+		eventstore.WithSQLiteDB("exampledb"),
 	)
 	checkErr(err)
 

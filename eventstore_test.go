@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"gorm.io/driver/sqlite"
 	"io"
 	"reflect"
 	"testing"
@@ -14,7 +13,7 @@ import (
 	"github.com/aneshas/eventstore"
 )
 
-var integration = flag.Bool("integration", false, "perform integration tests")
+var integration = flag.Bool("integration", true, "perform integration tests")
 
 type SomeEvent struct {
 	UserID string
@@ -29,7 +28,7 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 
 	defer cleanup()
 
-	evts := []interface{}{
+	evts := []any{
 		SomeEvent{
 			UserID: "user-1",
 		},
@@ -48,9 +47,9 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 	}
 
 	err := es.AppendStream(
-		ctx, stream, eventstore.InitialStreamVersion, evts,
-		eventstore.WithMetaData(meta),
+		ctx, stream, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
+
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -63,6 +62,8 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 	for i, evt := range got {
 		if !reflect.DeepEqual(evt.Event, evts[i]) ||
 			!reflect.DeepEqual(evt.Meta, meta) ||
+			*evt.CorrelationEventID != "123" ||
+			*evt.CausationEventID != "456" ||
 			evt.Type != "SomeEvent" {
 
 			t.Fatal("events not read")
@@ -96,14 +97,14 @@ func TestShouldWriteToDifferentStreams(t *testing.T) {
 	streamTwo := "another-stream"
 
 	err := es.AppendStream(
-		ctx, streamOne, eventstore.InitialStreamVersion, evts,
+		ctx, streamOne, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
 
 	err = es.AppendStream(
-		ctx, streamTwo, eventstore.InitialStreamVersion, evts,
+		ctx, streamTwo, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
 	if err != nil {
 		t.Fatalf("error: %v", err)
@@ -135,15 +136,16 @@ func TestShouldAppendToExistingStream(t *testing.T) {
 	stream := "some-stream"
 
 	err := es.AppendStream(
-		ctx, stream, eventstore.InitialStreamVersion, evts,
+		ctx, stream, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
 
 	err = es.AppendStream(
-		ctx, stream, 3, evts,
+		ctx, stream, 3, toEventToStore(evts...),
 	)
+
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
@@ -168,17 +170,17 @@ func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
 	stream := "some-stream"
 
 	err := es.AppendStream(
-		ctx, stream, eventstore.InitialStreamVersion, evts,
+		ctx, stream, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
 	if err != nil {
 		t.Fatalf("error: %v", err)
 	}
 
 	err = es.AppendStream(
-		ctx, stream, eventstore.InitialStreamVersion, evts,
+		ctx, stream, eventstore.InitialStreamVersion, toEventToStore(evts...),
 	)
 
-	if err != eventstore.ErrConcurrencyCheckFailed {
+	if !errors.Is(err, eventstore.ErrConcurrencyCheckFailed) {
 		t.Fatalf("should have performed optimistic concurrency check")
 	}
 }
@@ -193,7 +195,7 @@ func TestReadStreamWrapsNotFoundError(t *testing.T) {
 	defer cleanup()
 
 	_, err := es.ReadStream(context.Background(), "foo-stream")
-	if err != eventstore.ErrStreamNotFound {
+	if !errors.Is(err, eventstore.ErrStreamNotFound) {
 		t.Fatal("should return explicit error if stream doesn't exist")
 	}
 }
@@ -221,7 +223,7 @@ func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := es.AppendStream(ctx, "stream-one", eventstore.InitialStreamVersion, evts)
+	err := es.AppendStream(ctx, "stream-one", eventstore.InitialStreamVersion, toEventToStore(evts...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +260,7 @@ func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 		},
 	}
 
-	err = es.AppendStream(ctx, "stream-two", eventstore.InitialStreamVersion, evtsTwo)
+	err = es.AppendStream(ctx, "stream-two", eventstore.InitialStreamVersion, toEventToStore(evtsTwo...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -270,8 +272,8 @@ func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
 	}
 }
 
-func readAllSub(t *testing.T, sub eventstore.Subscription, expect int) []eventstore.EventData {
-	var got []eventstore.EventData
+func readAllSub(t *testing.T, sub eventstore.Subscription, expect int) []eventstore.StoredEvent {
+	var got []eventstore.StoredEvent
 
 outer:
 	for {
@@ -320,7 +322,7 @@ func TestReadAllShouldReadAllEvents(t *testing.T) {
 
 	ctx := context.Background()
 
-	err := es.AppendStream(ctx, "stream-one", eventstore.InitialStreamVersion, evts)
+	err := es.AppendStream(ctx, "stream-one", eventstore.InitialStreamVersion, toEventToStore(evts...))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,9 +443,11 @@ func TestEncoderEncodeErrorsPropagated(t *testing.T) {
 		context.Background(),
 		"stream",
 		eventstore.InitialStreamVersion,
-		[]interface{}{
-			SomeEvent{
-				UserID: "123",
+		[]eventstore.EventToStore{
+			{
+				Event: SomeEvent{
+					UserID: "123",
+				},
 			},
 		},
 	)
@@ -480,9 +484,11 @@ func TestEncoderDecodeErrorsPropagated(t *testing.T) {
 		context.Background(),
 		"stream",
 		eventstore.InitialStreamVersion,
-		[]interface{}{
-			SomeEvent{
-				UserID: "123",
+		[]eventstore.EventToStore{
+			{
+				Event: SomeEvent{
+					UserID: "123",
+				},
 			},
 		},
 	)
@@ -524,9 +530,11 @@ func TestEncoderDecodeErrorsPropagatedOnSubscribeAll(t *testing.T) {
 		context.Background(),
 		"stream",
 		eventstore.InitialStreamVersion,
-		[]interface{}{
-			SomeEvent{
-				UserID: "123",
+		[]eventstore.EventToStore{
+			{
+				Event: SomeEvent{
+					UserID: "123",
+				},
 			},
 		},
 	)
@@ -547,10 +555,18 @@ func TestEncoderDecodeErrorsPropagatedOnSubscribeAll(t *testing.T) {
 		t.Fatal("error should have been propagated")
 	}
 }
+
 func TestNewEncoderMustBeProvided(t *testing.T) {
-	_, err := eventstore.New(nil, nil)
+	_, err := eventstore.New(nil)
 	if err == nil {
 		t.Fatal("encoder must be provided")
+	}
+}
+
+func TestNewDBMustBeProvided(t *testing.T) {
+	_, err := eventstore.New(eventstore.NewJSONEncoder())
+	if err == nil {
+		t.Fatal("db con must be provided")
 	}
 }
 
@@ -580,22 +596,11 @@ func TestAppendStreamValidation(t *testing.T) {
 				},
 			},
 		},
-		{
-			stream: "stream",
-			ver:    0,
-			evts:   nil,
-		},
-
-		{
-			stream: "stream",
-			ver:    0,
-			evts:   []interface{}{},
-		},
 	}
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			err := es.AppendStream(context.Background(), tc.stream, tc.ver, tc.evts)
+			err := es.AppendStream(context.Background(), tc.stream, tc.ver, toEventToStore(tc.evts))
 			if err == nil {
 				t.Fatal("validation error should have happened")
 			}
@@ -635,7 +640,7 @@ func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 }
 
 func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventStore, func()) {
-	es, err := eventstore.New(sqlite.Open("file::memory:?cache=shared"), enc)
+	es, err := eventstore.New(enc, eventstore.WithSQLiteDB("file::memory:?cache=shared"))
 	if err != nil {
 		t.Fatalf("error creating es: %v", err)
 	}
@@ -646,4 +651,21 @@ func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventS
 			t.Fatal(err)
 		}
 	}
+}
+
+func toEventToStore(events ...any) []eventstore.EventToStore {
+	var evts []eventstore.EventToStore
+
+	for _, evt := range events {
+		evts = append(evts, eventstore.EventToStore{
+			Event: evt,
+			Meta: map[string]string{
+				"ip": "127.0.0.1",
+			},
+			CorrelationEventID: "123",
+			CausationEventID:   "456",
+		})
+	}
+
+	return evts
 }

@@ -9,10 +9,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	uuid2 "github.com/google/uuid"
+	"gorm.io/driver/sqlite"
 	"io"
 	"time"
 
 	"github.com/mattn/go-sqlite3"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -36,24 +39,36 @@ type EncodedEvt struct {
 // Encoder is used by the event store in order to correctly marshal
 // and unmarshal event types
 type Encoder interface {
-	Encode(interface{}) (*EncodedEvt, error)
-	Decode(*EncodedEvt) (interface{}, error)
-}
-
-// EventData holds stored event data and meta data
-type EventData struct {
-	Event interface{}
-	Meta  map[string]string
-	Type  string
-	// TODO Add CreatedAt, Version,  Offset, Stream
+	Encode(any) (*EncodedEvt, error)
+	Decode(*EncodedEvt) (any, error)
 }
 
 // New construct new event store
 // dbname - a path to sqlite database on disk
 // enc - a specific encoder implementation (see bundled JsonEncoder)
-func New(dial gorm.Dialector, enc Encoder) (*EventStore, error) {
+func New(enc Encoder, opts ...Option) (*EventStore, error) {
 	if enc == nil {
 		return nil, fmt.Errorf("encoder implementation must be provided")
+	}
+
+	var cfg Cfg
+
+	for _, opt := range opts {
+		cfg = opt(cfg)
+	}
+
+	if cfg.PostgresDSN == "" && cfg.SQLitePath == "" {
+		return nil, fmt.Errorf("either postgres dsn or sqlite path must be provided")
+	}
+
+	var dial gorm.Dialector
+
+	if cfg.PostgresDSN != "" {
+		dial = postgres.Open(cfg.PostgresDSN)
+	}
+
+	if cfg.SQLitePath != "" {
+		dial = sqlite.Open(cfg.SQLitePath)
 	}
 
 	db, err := gorm.Open(dial, &gorm.Config{})
@@ -65,6 +80,35 @@ func New(dial gorm.Dialector, enc Encoder) (*EventStore, error) {
 		db:  db,
 		enc: enc,
 	}, db.AutoMigrate(&gormEvent{})
+}
+
+// Cfg represents event store configuration
+type Cfg struct {
+	PostgresDSN string
+	SQLitePath  string
+}
+
+// Option represents event store configuration option
+type Option func(Cfg) Cfg
+
+// WithPostgresDB is an event store option that can be used to configure
+// the eventstore to use postgres as a backing storage (pgx driver)
+func WithPostgresDB(dsn string) Option {
+	return func(cfg Cfg) Cfg {
+		cfg.PostgresDSN = dsn
+
+		return cfg
+	}
+}
+
+// WithSQLiteDB is an event store option that can be used to configure
+// the eventstore to use sqlite as a backing storage
+func WithSQLiteDB(path string) Option {
+	return func(cfg Cfg) Cfg {
+		cfg.SQLitePath = path
+
+		return cfg
+	}
 }
 
 // EventStore represents a sqlite event store implementation
@@ -85,33 +129,29 @@ func (es *EventStore) Close() error {
 }
 
 type gormEvent struct {
-	gorm.Model
-	Type          string
-	Stream        string `gorm:"index:idx_optimistic_check,unique;index"`
-	StreamVersion int    `gorm:"index:idx_optimistic_check,unique"`
-	Data          string
-	Meta          string
+	ID                 string `gorm:"unique"`
+	Sequence           uint64 `gorm:"autoIncrement;primaryKey"`
+	Type               string
+	Data               string
+	Meta               *string
+	CausationEventID   *string
+	CorrelationEventID *string
+	StreamID           string    `gorm:"index:idx_optimistic_check,unique;index"`
+	StreamVersion      int       `gorm:"index:idx_optimistic_check,unique"`
+	OccurredOn         time.Time `gorm:"autoCreateTime"`
 }
 
 // TableName returns gorm table name
-func (ge *gormEvent) TableName() string { return "events" }
+func (ge *gormEvent) TableName() string { return "event" }
 
 // AppendStreamConfig (configure using AppendStreamOpt)
 type AppendStreamConfig struct {
 	meta map[string]string
-}
 
-// AppendStreamOpt represents append to stream option
-type AppendStreamOpt func(AppendStreamConfig) AppendStreamConfig
+	correlationEventID string
+	causationEventID   string
 
-// WithMetaData is an AppendStream option that can be used to
-// associate arbitrary meta data to a batch of events to store
-func WithMetaData(meta map[string]string) AppendStreamOpt {
-	return func(cfg AppendStreamConfig) AppendStreamConfig {
-		cfg.meta = meta
-
-		return cfg
-	}
+	// even event ids could be set eg - slice of event ids for each event
 }
 
 const (
@@ -119,6 +159,18 @@ const (
 	// new streams (as an argument to AppendStream)
 	InitialStreamVersion int = 0
 )
+
+// EventToStore represents an event that is to be stored in the event store
+type EventToStore struct {
+	// TODO - if you keep this, remove metadata and correlation options
+	Event any
+
+	// Optional
+	ID                 string
+	CausationEventID   string
+	CorrelationEventID string
+	Meta               map[string]string
+}
 
 // AppendStream will encode provided event slice and try to append them to
 // an indicated stream. If the stream does not exist it will be created.
@@ -131,54 +183,72 @@ func (es *EventStore) AppendStream(
 	ctx context.Context,
 	stream string,
 	expectedVer int,
-	evts []interface{},
-	opts ...AppendStreamOpt) error {
+	events []EventToStore) error {
 
 	if len(stream) == 0 {
 		return fmt.Errorf("stream name must be provided")
 	}
 
-	if expectedVer < 0 {
+	if expectedVer < InitialStreamVersion {
 		return fmt.Errorf("expected version cannot be less than 0")
 	}
 
-	if len(evts) < 1 {
-		return fmt.Errorf("please provide at least one event to append")
+	if len(events) == 0 {
+		return nil
 	}
 
-	cfg := AppendStreamConfig{}
+	eventsToSave := make([]gormEvent, len(events))
 
-	for _, opt := range opts {
-		cfg = opt(cfg)
-	}
-
-	events := make([]gormEvent, len(evts))
-
-	m, err := json.Marshal(cfg.meta)
-	if err != nil {
-		return err
-	}
-
-	for i, evt := range evts {
-		encoded, err := es.enc.Encode(evt)
+	for i, evt := range events {
+		encoded, err := es.enc.Encode(evt.Event)
 		if err != nil {
 			return err
 		}
 
 		expectedVer++
 
-		events[i] = gormEvent{
-			Stream:        stream,
-			StreamVersion: expectedVer,
-			Data:          encoded.Data,
-			Meta:          string(m),
+		event := gormEvent{
+			ID:            evt.ID,
 			Type:          encoded.Type,
+			Data:          encoded.Data,
+			StreamID:      stream,
+			StreamVersion: expectedVer,
 		}
+
+		if evt.CorrelationEventID != "" {
+			event.CorrelationEventID = &evt.CorrelationEventID
+		}
+
+		if evt.CausationEventID != "" {
+			event.CausationEventID = &evt.CausationEventID
+		}
+
+		if evt.Meta != nil {
+			m, err := json.Marshal(evt.Meta)
+			if err != nil {
+				return err
+			}
+
+			ms := string(m)
+
+			event.Meta = &ms
+		}
+
+		if event.ID == "" {
+			uuid, err := uuid2.NewV7()
+			if err != nil {
+				return err
+			}
+
+			event.ID = uuid.String()
+		}
+
+		eventsToSave[i] = event
 	}
 
-	tx := es.db.Create(&events)
+	tx := es.db.WithContext(ctx).Create(&eventsToSave)
 
-	err = tx.Error
+	err := tx.Error
 
 	if e, ok := err.(sqlite3.Error); ok && e.Code == 19 {
 		return ErrConcurrencyCheckFailed
@@ -241,7 +311,7 @@ type Subscription struct {
 	// each time we empty the Err channel. This means that reading from Err (in
 	// case of io.EOF) can be strategically used in order to achieve backpressure
 	Err       chan error
-	EventData chan EventData
+	EventData chan StoredEvent
 
 	close chan struct{}
 }
@@ -255,11 +325,26 @@ func (s Subscription) Close() {
 	s.close <- struct{}{}
 }
 
+// StoredEvent holds stored event data and meta data
+type StoredEvent struct {
+	Event any
+	Meta  map[string]string
+
+	ID                 string
+	Sequence           uint64
+	Type               string
+	CausationEventID   *string
+	CorrelationEventID *string
+	StreamID           string
+	StreamVersion      int
+	OccurredOn         time.Time
+}
+
 // ReadAll will read all events from the event store by internally creating a
 // a subscription and depleting it until io.EOF is encountered
 // WARNING: Use with caution as this method will read the entire event store
-// in a blocking fashion (porbably best used in combination with offset option)
-func (es *EventStore) ReadAll(ctx context.Context, opts ...SubAllOpt) ([]EventData, error) {
+// in a blocking fashion (probably best used in combination with offset option)
+func (es *EventStore) ReadAll(ctx context.Context, opts ...SubAllOpt) ([]StoredEvent, error) {
 	sub, err := es.SubscribeAll(ctx, opts...)
 	if err != nil {
 		return nil, err
@@ -267,16 +352,16 @@ func (es *EventStore) ReadAll(ctx context.Context, opts ...SubAllOpt) ([]EventDa
 
 	defer sub.Close()
 
-	var evts []EventData
+	var events []StoredEvent
 
 	for {
 		select {
 		case data := <-sub.EventData:
-			evts = append(evts, data)
+			events = append(events, data)
 
 		case err := <-sub.Err:
 			if errors.Is(err, io.EOF) {
-				return evts, nil
+				return events, nil
 			}
 
 			return nil, err
@@ -303,7 +388,7 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 
 	sub := Subscription{
 		Err:       make(chan error, 1),
-		EventData: make(chan EventData, cfg.batchSize),
+		EventData: make(chan StoredEvent, cfg.batchSize),
 		close:     make(chan struct{}, 1),
 	}
 
@@ -335,8 +420,8 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 				var evts []gormEvent
 
 				if err := es.db.
-					Where("id > ?", cfg.offset).
-					Order("id asc").
+					Where("sequence > ?", cfg.offset).
+					Order("sequence asc").
 					Limit(cfg.batchSize).
 					Find(&evts).Error; err != nil {
 					done = err
@@ -352,7 +437,7 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 
 				cfg.offset = cfg.offset + len(evts)
 
-				decoded, err := es.decodeEvts(evts)
+				decoded, err := es.decodeEvents(evts)
 				if err != nil {
 					done = err
 
@@ -371,32 +456,33 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 
 // ReadStream will read all events associated with provided stream
 // If there are no events stored for a given stream ErrStreamNotFound will be returned
-func (es *EventStore) ReadStream(ctx context.Context, stream string) ([]EventData, error) {
-	var evts []gormEvent
+func (es *EventStore) ReadStream(ctx context.Context, stream string) ([]StoredEvent, error) {
+	var events []gormEvent
 
 	if len(stream) == 0 {
 		return nil, fmt.Errorf("stream name must be provided")
 	}
 
 	if err := es.db.
-		Where("stream = ?", stream).
-		Order("id asc").
-		Find(&evts).Error; err != nil {
+		WithContext(ctx).
+		Where("stream_id = ?", stream).
+		Order("sequence asc").
+		Find(&events).Error; err != nil {
 
 		return nil, err
 	}
 
-	if len(evts) == 0 {
+	if len(events) == 0 {
 		return nil, ErrStreamNotFound
 	}
 
-	return es.decodeEvts(evts)
+	return es.decodeEvents(events)
 }
 
-func (es *EventStore) decodeEvts(evts []gormEvent) ([]EventData, error) {
-	out := make([]EventData, len(evts))
+func (es *EventStore) decodeEvents(events []gormEvent) ([]StoredEvent, error) {
+	out := make([]StoredEvent, len(events))
 
-	for i, evt := range evts {
+	for i, evt := range events {
 		data, err := es.enc.Decode(&EncodedEvt{
 			Data: evt.Data,
 			Type: evt.Type,
@@ -407,15 +493,24 @@ func (es *EventStore) decodeEvts(evts []gormEvent) ([]EventData, error) {
 
 		var meta map[string]string
 
-		err = json.Unmarshal([]byte(evt.Meta), &meta)
-		if err != nil {
-			return nil, err
+		if evt.Meta != nil {
+			err = json.Unmarshal([]byte(*evt.Meta), &meta)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		out[i] = EventData{
-			Event: data,
-			Type:  evt.Type,
-			Meta:  meta,
+		out[i] = StoredEvent{
+			Event:              data,
+			Meta:               meta,
+			ID:                 evt.ID,
+			Sequence:           evt.Sequence,
+			Type:               evt.Type,
+			CausationEventID:   evt.CausationEventID,
+			CorrelationEventID: evt.CorrelationEventID,
+			StreamID:           evt.StreamID,
+			StreamVersion:      evt.StreamVersion,
+			OccurredOn:         evt.OccurredOn,
 		}
 	}
 

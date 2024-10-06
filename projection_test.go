@@ -27,7 +27,7 @@ func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt
 
 	sub := eventstore.Subscription{
 		Err:       make(chan error, 1),
-		EventData: make(chan eventstore.EventData),
+		EventData: make(chan eventstore.StoredEvent),
 	}
 
 	go func() {
@@ -36,7 +36,7 @@ func (s streamer) SubscribeAll(ctx context.Context, opts ...eventstore.SubAllOpt
 		}
 
 		for _, evt := range s.evts {
-			sub.EventData <- eventstore.EventData{
+			sub.EventData <- eventstore.StoredEvent{
 				Event: evt,
 			}
 
@@ -79,12 +79,12 @@ func TestShouldProjectEventsToProjections(t *testing.T) {
 	var anotherGot []interface{}
 
 	p.Add(
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			got = append(got, ed.Event)
 
 			return nil
 		},
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			anotherGot = append(anotherGot, ed.Event)
 
 			return nil
@@ -117,7 +117,7 @@ func TestShouldRetryAndRestartIfProjectionErrorsOut(t *testing.T) {
 	var times int
 
 	p.Add(
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			if times < 3 {
 				times++
 				return fmt.Errorf("some transient error")
@@ -146,7 +146,7 @@ func TestShouldRetrySubscriptionIfProjectionFailsToSubscribe(t *testing.T) {
 	p := eventstore.NewProjector(s)
 
 	p.Add(
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			return nil
 		},
 	)
@@ -169,10 +169,10 @@ func TestShouldExitIfContextIsCanceled(t *testing.T) {
 	p := eventstore.NewProjector(s)
 
 	p.Add(
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			return nil
 		},
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			return nil
 		},
 	)
@@ -207,7 +207,7 @@ func TestShouldContinueProjectingIfStreamingErrorOccurs(t *testing.T) {
 	var got []interface{}
 
 	p.Add(
-		func(ed eventstore.EventData) error {
+		func(ed eventstore.StoredEvent) error {
 			got = append(got, ed.Event)
 
 			return nil
@@ -250,7 +250,7 @@ func TestShouldFlushProjection(t *testing.T) {
 
 	p.Add(
 		eventstore.FlushAfter(
-			func(ed eventstore.EventData) error {
+			func(ed eventstore.StoredEvent) error {
 				m.Lock()
 				defer m.Unlock()
 

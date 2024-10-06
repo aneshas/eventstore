@@ -1,46 +1,53 @@
 package account
 
-import "github.com/aneshas/eventstore"
+import (
+	"github.com/aneshas/eventstore/aggregate"
+)
 
 // New creates new Account
 func New(id, holder string) (*Account, error) {
 	var acc Account
 
-	err := acc.Init(&acc)
-	if err != nil {
-		return nil, err
-	}
+	acc.Rehydrate(&acc)
 
-	err = acc.Apply(
+	acc.Apply(
 		NewAccountOpened{
 			ID:     id,
 			Holder: holder,
 		},
 	)
-	if err != nil {
-		return nil, err
-	}
 
-	return &acc, err
+	return &acc, nil
 }
 
-// NewAccountOpened domain event indicates that new
-// account has been opened
-type NewAccountOpened struct {
-	ID     string
-	Holder string
-}
+type ID string
 
-// Account represents an account domain model
+// Account represents an account aggregate
 type Account struct {
-	eventstore.AggregateRoot
+	aggregate.Root[ID]
 
-	ID     string
-	holder string
+	ID      string
+	holder  string
+	balance int
 }
 
-// OnNewAccountOpened event handler
+// Deposit money
+func (a *Account) Deposit(amount int) {
+	a.Apply(
+		// TODO - Add ApplyMeta
+		// internally Events() always should contain EventsToStore ?
+		DepositMade{Amount: amount},
+	)
+}
+
+// OnNewAccountOpened handler
+// TODO - add second parameter
 func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
 	a.ID = evt.ID
 	a.holder = evt.Holder
+}
+
+// OnDepositMade handler
+func (a *Account) OnDepositMade(evt DepositMade) {
+	a.balance += evt.Amount
 }

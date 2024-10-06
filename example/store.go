@@ -8,9 +8,9 @@ import (
 )
 
 // NewAccountStore constructs new account repository
-func NewAccountStore(estore *eventstore.EventStore) *AccountStore {
+func NewAccountStore(eventStore *eventstore.EventStore) *AccountStore {
 	return &AccountStore{
-		estore: estore,
+		eventStore: eventStore,
 	}
 }
 
@@ -18,37 +18,51 @@ func NewAccountStore(estore *eventstore.EventStore) *AccountStore {
 // which you might implement in order to abstract the underlying persistent mechanism
 // In essence all event sourcing is is a different form of persistence
 type AccountStore struct {
-	estore *eventstore.EventStore
+	eventStore *eventstore.EventStore
 }
 
 // Save saves an account
 func (s *AccountStore) Save(ctx context.Context, acc *account.Account) error {
-	return s.estore.AppendStream(
+	var events []eventstore.EventToStore
+
+	for _, evt := range acc.Events() {
+		events = append(events, eventstore.EventToStore{
+			Event: evt,
+
+			// Optional
+			ID:                 "",
+			CausationEventID:   "",
+			CorrelationEventID: "",
+			Meta:               nil,
+		})
+	}
+
+	return s.eventStore.AppendStream(
 		ctx,
 		acc.ID,
 		acc.Version(),
-		acc.Events(),
-		// eg. read meta data from ctx
-		// such as ip, username etc...
-		eventstore.WithMetaData(nil),
+		events,
 	)
 }
 
 // FindByID finds an account by it's id
 func (s *AccountStore) FindByID(ctx context.Context, id string) (*account.Account, error) {
-	data, err := s.estore.ReadStream(ctx, id)
+	storedEvents, err := s.eventStore.ReadStream(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	var evts []interface{}
+	var events []any
 
-	for _, evt := range data {
+	for _, evt := range storedEvents {
 		// eg. extract additional props (CreatedAt etc...)
-		evts = append(evts, evt.Event)
+		events = append(events, evt.Event)
 	}
 
 	var acc account.Account
 
-	return &acc, acc.Init(&acc, evts...)
+	// TODO - Should accept stored event and call alternate apply method
+	acc.Rehydrate(&acc, events...)
+
+	return &acc, nil
 }
