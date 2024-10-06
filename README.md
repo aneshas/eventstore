@@ -9,6 +9,7 @@
 - [ ] alternate On method and alternate apply
 - [ ] correlation from context (helper methods in aggregate to set correlation and meta)
 - [ ] projections only for simple local testing simplify and document
+- [ ] upgrade packages
 - [ ] autogenerate ID in aggregate
 - [ ] complete example with echo and mutation 
 
