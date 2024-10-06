@@ -18,7 +18,9 @@ jobs:
           go-version: 1.17
 
       - name: Test
-        run: go test -race -covermode=atomic -coverprofile=coverage.out -v `go list ./... | grep -v ./example` -integration
+        run: |
+          go mod tidy
+          go test -race -covermode=atomic -coverprofile=coverage.out -v `go list ./... | grep -v ./example` -integration
 
       - name: Install goveralls
         run: go install github.com/mattn/goveralls@latest
