@@ -91,7 +91,7 @@ func (a *Root[T]) Apply(events ...any) {
 
 	for _, evt := range events {
 		e := Event{
-			ID:         "TODO-Autogenerate",
+			ID:         "", // TODO - Autogenerate
 			E:          evt,
 			OccurredOn: time.Now().UTC(),
 		}

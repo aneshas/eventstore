@@ -29,7 +29,7 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 
 	for _, evt := range aggregate.Events() {
 		events = append(events, eventstore.EventToStore{
-			Event:      evt,
+			Event:      evt.E,
 			ID:         evt.ID,
 			OccurredOn: evt.OccurredOn,
 

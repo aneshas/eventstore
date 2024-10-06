@@ -15,7 +15,7 @@ func NewOpenAccountHandlerFunc(store *aggregate.Store[*account.Account]) http.Ha
 	return func(rw http.ResponseWriter, r *http.Request) {
 		id := fmt.Sprintf("%d-%d", time.Now().Unix(), rand.Int())
 
-		acc, err := account.New(id, "John Doe")
+		acc, err := account.New(account.ID(id), "John Doe")
 		if err != nil {
 			fmt.Fprintf(rw, "error: %v", err)
 		}
@@ -25,6 +25,6 @@ func NewOpenAccountHandlerFunc(store *aggregate.Store[*account.Account]) http.Ha
 			fmt.Fprintf(rw, "error: %v", err)
 		}
 
-		fmt.Fprintf(rw, "account created: %s", acc.ID)
+		fmt.Fprintf(rw, "account created: %s", acc.ID())
 	}
 }

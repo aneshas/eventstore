@@ -4,6 +4,14 @@
 [![Coverage Status](https://coveralls.io/repos/github/aneshas/eventstore/badge.svg)](https://coveralls.io/github/aneshas/eventstore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aneshas/eventstore)](https://goreportcard.com/report/github.com/aneshas/eventstore)
 
+# TODO 
+- [ ] store tests
+- [ ] alternate On method and alternate apply
+- [ ] correlation from context
+- [ ] projections only for simple local testing simplify and document
+- [ ] autogenerate ID in aggregate
+- [ ] complete example with echo and mutation 
+
 Embeddable EventStore implementation written in Go using gorm as an underlying persistence mechanism meaning it will work
 with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver).
 
@@ -14,10 +22,6 @@ with `almost` (tested sqlite and postgres) whatever underlying database gorm wil
 - Reading all events
 - Subscribing (streaming) all events from the event store (real-time)
 - Fault-tolerant projection system (Projector)
-
-## Upcoming
-
-Add offset handling and retry mechanism to the default Projector.
 
 ## Example
 

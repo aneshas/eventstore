@@ -5,14 +5,14 @@ import (
 )
 
 // New creates new Account
-func New(id, holder string) (*Account, error) {
+func New(id ID, holder string) (*Account, error) {
 	var acc Account
 
 	acc.Rehydrate(&acc)
 
 	acc.Apply(
 		NewAccountOpened{
-			AccountID: id,
+			AccountID: id.String(),
 			Holder:    holder,
 		},
 	)
