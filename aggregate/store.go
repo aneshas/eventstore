@@ -2,8 +2,18 @@ package aggregate
 
 import (
 	"context"
+	"errors"
 	"github.com/aneshas/eventstore"
 )
+
+// ErrAggregateNotFound is returned when aggregate is not found
+var ErrAggregateNotFound = errors.New("aggregate not found")
+
+type metaKey struct{}
+
+type correlationIDKey struct{}
+
+type causationIDKey struct{}
 
 // NewStore constructs new event sourced aggregate store
 func NewStore[T Rooter](eventStore EventStore) *Store[T] {
@@ -25,7 +35,24 @@ type Store[T Rooter] struct {
 
 // Save saves aggregate events to the event store
 func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
-	var events []eventstore.EventToStore
+	var (
+		events        []eventstore.EventToStore
+		meta          map[string]string
+		correlationID string
+		causationID   string
+	)
+
+	if v, ok := ctx.Value(metaKey{}).(map[string]string); ok {
+		meta = v
+	}
+
+	if v, ok := ctx.Value(correlationIDKey{}).(string); ok {
+		correlationID = v
+	}
+
+	if v, ok := ctx.Value(causationIDKey{}).(string); ok {
+		causationID = v
+	}
 
 	for _, evt := range aggregate.Events() {
 		events = append(events, eventstore.EventToStore{
@@ -33,10 +60,10 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 			ID:         evt.ID,
 			OccurredOn: evt.OccurredOn,
 
-			// Optional - set through context
-			CausationEventID:   "",
-			CorrelationEventID: "",
-			Meta:               nil,
+			// Optional
+			CausationEventID:   causationID,
+			CorrelationEventID: correlationID,
+			Meta:               meta,
 		})
 	}
 
@@ -49,10 +76,14 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 }
 
 // FindByID finds aggregate events by its id and rehydrates the aggregate
-func (s *Store[T]) FindByID(ctx context.Context, id string) (*T, error) {
+func (s *Store[T]) FindByID(ctx context.Context, id string, root T) error {
 	storedEvents, err := s.eventStore.ReadStream(ctx, id)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, eventstore.ErrStreamNotFound) {
+			return ErrAggregateNotFound
+		}
+
+		return err
 	}
 
 	var events []Event
@@ -60,7 +91,7 @@ func (s *Store[T]) FindByID(ctx context.Context, id string) (*T, error) {
 	for _, evt := range storedEvents {
 		events = append(events, Event{
 			ID:                 evt.ID,
-			E:                  evt,
+			E:                  evt.Event,
 			OccurredOn:         evt.OccurredOn,
 			CausationEventID:   evt.CausationEventID,
 			CorrelationEventID: evt.CorrelationEventID,
@@ -68,9 +99,22 @@ func (s *Store[T]) FindByID(ctx context.Context, id string) (*T, error) {
 		})
 	}
 
-	var acc T
+	root.Rehydrate(root, events...)
 
-	acc.Rehydrate(&acc, events...)
+	return nil
+}
 
-	return &acc, nil
+// CtxWithMeta returns new context with meta data
+func CtxWithMeta(ctx context.Context, meta map[string]string) context.Context {
+	return context.WithValue(ctx, metaKey{}, meta)
+}
+
+// CtxWithCorrelationID returns new context with correlation ID
+func CtxWithCorrelationID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, correlationIDKey{}, id)
+}
+
+// CtxWithCausationID returns new context with causation ID
+func CtxWithCausationID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, causationIDKey{}, id)
 }

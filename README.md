@@ -6,12 +6,16 @@
 
 # TODO 
 - [ ] store tests
-- [ ] alternate On method and alternate apply
-- [ ] correlation from context (helper methods in aggregate to set correlation and meta)
-- [ ] projections only for simple local testing simplify and document
+- [ ] add postgres tests with test-containers (with flag?)
 - [ ] upgrade packages
-- [ ] autogenerate ID in aggregate
-- [ ] complete example with echo and mutation 
+- [x] autogenerate ID in aggregate
+- [ ] WithDB option to pass db connection - eg. for encore?
+- [ ] complete example with echo and mutation
+- [ ] for projections - ignore missing json types - don't throw error (this implies projection is not interested)
+- [ ] alternate On method with Event and alternate apply for id
+- [x] correlation from context (helper methods in aggregate to set correlation and meta)
+- [ ] projections only for simple local testing simplify and document
+- [x] json encoding/decoding for events types - better way?
 
 Embeddable EventStore implementation written in Go using gorm as an underlying persistence mechanism meaning it will work
 with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver).

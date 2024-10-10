@@ -10,21 +10,20 @@ import (
 
 	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore-example/account"
-	"gorm.io/driver/sqlite"
 )
 
 func main() {
-	estore, err := eventstore.New(
-		sqlite.Open("exampledb"),
-		eventstore.NewJSONEncoder(
-			account.NewAccountOpened{},
-		),
+	eventStore, err := eventstore.New(
+		eventstore.NewJSONEncoder(account.Events...),
+		eventstore.WithSQLiteDB("example.db"),
 	)
 	checkErr(err)
 
-	defer estore.Close()
+	defer func() {
+		_ = eventStore.Close()
+	}()
 
-	p := eventstore.NewProjector(estore)
+	p := eventstore.NewProjector(eventStore)
 
 	p.Add(
 		NewConsoleOutputProjection(),
@@ -40,7 +39,7 @@ func checkErr(err error) {
 	}
 }
 
-// NewConsoleOutputProjection consutructs an example projection that outputs
+// NewConsoleOutputProjection constructs an example projection that outputs
 // new accounts to the console. It might as well be to any kind of
 // database, disk, memory etc...
 func NewConsoleOutputProjection() eventstore.Projection {
@@ -48,7 +47,7 @@ func NewConsoleOutputProjection() eventstore.Projection {
 		switch data.Event.(type) {
 		case account.NewAccountOpened:
 			evt := data.Event.(account.NewAccountOpened)
-			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.ID, evt.Holder)
+			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.AccountID, evt.Holder)
 		default:
 			fmt.Println("not interested in this event")
 		}
@@ -59,7 +58,7 @@ func NewConsoleOutputProjection() eventstore.Projection {
 
 // NewJSONFileProjection makes use of flush after projection in order to
 // periodically write accounts to a json file on disk
-func NewJSONFileProjection(fname string) eventstore.Projection {
+func NewJSONFileProjection(fName string) eventstore.Projection {
 	var accounts []string
 
 	return eventstore.FlushAfter(
@@ -67,13 +66,14 @@ func NewJSONFileProjection(fname string) eventstore.Projection {
 			switch data.Event.(type) {
 			case account.NewAccountOpened:
 				evt := data.Event.(account.NewAccountOpened)
-				accounts = append(accounts, fmt.Sprintf("Account: #%s | Holder: <%s>", evt.ID, evt.Holder))
+				accounts = append(accounts, fmt.Sprintf("Account: #%s | Holder: %s", evt.AccountID, evt.Holder))
 			default:
 				fmt.Println("not interested in this event")
 			}
 
 			return nil
 		},
+
 		func() error {
 			if len(accounts) == 0 {
 				return nil
@@ -84,13 +84,14 @@ func NewJSONFileProjection(fname string) eventstore.Projection {
 				return err
 			}
 
-			err = os.WriteFile(fname, data, os.ModeAppend|os.ModePerm)
+			err = os.WriteFile(fName, data, os.ModeAppend|os.ModePerm)
 			if err != nil {
 				return err
 			}
 
 			return nil
 		},
+
 		3*time.Second,
 	)
 }

@@ -2,6 +2,7 @@ package aggregate
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"reflect"
 	"time"
 )
@@ -91,7 +92,7 @@ func (a *Root[T]) Apply(events ...any) {
 
 	for _, evt := range events {
 		e := Event{
-			ID:         "", // TODO - Autogenerate
+			ID:         uuid.Must(uuid.NewV7()).String(),
 			E:          evt,
 			OccurredOn: time.Now().UTC(),
 		}

@@ -30,21 +30,17 @@ func (id ID) String() string { return string(id) }
 type Account struct {
 	aggregate.Root[ID]
 
-	holder  string
-	balance int
+	// notice how aggregate has no state until it is needed to make a decision
+
+	Balance int
 }
 
 // Deposit money
 func (a *Account) Deposit(amount int) {
-	a.Apply(
-		// TODO - From aggregate we should always set the event ID
-		// and occurred on ?
-		// or
-		//
-		// Apply always sets ID and occured on internally
-		// Provide alternate Apply with IDs, OccuredOn - make this one accept single event (bcs of id)
-		// and others (correlation, meta, pass through context)
+	// for example: check if amount is positive or account is not closed
 
+	// if all good, do the mutation by applying the event
+	a.Apply(
 		DepositMade{
 			Amount: amount,
 		},
@@ -54,10 +50,9 @@ func (a *Account) Deposit(amount int) {
 // OnNewAccountOpened handler
 func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
 	a.SetID(ID(evt.AccountID))
-	a.holder = evt.Holder
 }
 
 // OnDepositMade handler
 func (a *Account) OnDepositMade(evt DepositMade) {
-	a.balance += evt.Amount
+	a.Balance += evt.Amount
 }

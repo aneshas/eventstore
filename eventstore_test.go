@@ -3,7 +3,6 @@ package eventstore_test
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"reflect"
@@ -13,17 +12,11 @@ import (
 	"github.com/aneshas/eventstore"
 )
 
-var integration = flag.Bool("integration", true, "perform integration tests")
-
 type SomeEvent struct {
 	UserID string
 }
 
 func TestShouldReadAppendedEvents(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -72,10 +65,6 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 }
 
 func TestShouldWriteToDifferentStreams(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -112,10 +101,6 @@ func TestShouldWriteToDifferentStreams(t *testing.T) {
 }
 
 func TestShouldAppendToExistingStream(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -152,10 +137,6 @@ func TestShouldAppendToExistingStream(t *testing.T) {
 }
 
 func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -186,10 +167,6 @@ func TestOptimisticConcurrencyCheckIsPerformed(t *testing.T) {
 }
 
 func TestReadStreamWrapsNotFoundError(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -201,10 +178,6 @@ func TestReadStreamWrapsNotFoundError(t *testing.T) {
 }
 
 func TestSubscribeAllWithOffsetCatchesUpToNewEvents(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -300,10 +273,6 @@ outer:
 }
 
 func TestReadAllShouldReadAllEvents(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -344,10 +313,6 @@ func TestReadAllShouldReadAllEvents(t *testing.T) {
 }
 
 func TestSubscribeAllCancelsSubscriptionOnContextCancel(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -375,10 +340,6 @@ func TestSubscribeAllCancelsSubscriptionOnContextCancel(t *testing.T) {
 }
 
 func TestSubscribeAllCancelsSubscriptionWithClose(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -425,10 +386,6 @@ func (e enc) Decode(evt *eventstore.EncodedEvt) (interface{}, error) {
 }
 
 func TestEncoderEncodeErrorsPropagated(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	var anErr = fmt.Errorf("an error occurred")
 
 	e := enc{
@@ -458,10 +415,6 @@ func TestEncoderEncodeErrorsPropagated(t *testing.T) {
 }
 
 func TestEncoderDecodeErrorsPropagated(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	var anErr = fmt.Errorf("an error occurred")
 
 	e := enc{
@@ -504,10 +457,6 @@ func TestEncoderDecodeErrorsPropagated(t *testing.T) {
 }
 
 func TestEncoderDecodeErrorsPropagatedOnSubscribeAll(t *testing.T) {
-	if !*integration {
-		t.Skip("skipping integration tests")
-	}
-
 	var anErr = fmt.Errorf("an error occurred")
 
 	e := enc{
