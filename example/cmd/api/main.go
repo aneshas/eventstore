@@ -2,16 +2,13 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	"github.com/aneshas/eventstore"
+	"github.com/aneshas/eventstore-example/account"
 	"github.com/aneshas/eventstore/aggregate"
 	"github.com/labstack/echo/v4"
 	"log"
-	"math/rand"
 	"net/http"
-	"time"
-
-	"github.com/aneshas/eventstore"
-	"github.com/aneshas/eventstore-example/account"
+	"strconv"
 )
 
 func main() {
@@ -30,7 +27,14 @@ func main() {
 	e.Use(mw())
 
 	e.GET("/accounts/open", NewOpenAccountHandlerFunc(eventStore))
-	e.GET("/accounts/:id/deposit", NewDepositToAccountHandlerFunc(eventStore))
+	e.GET("/accounts/:id/deposit/:amount", NewDepositToAccountHandlerFunc(eventStore))
+	e.GET("/accounts/:id/withdraw/:amount", NewWithdrawFromAccountHandlerFunc(eventStore))
+
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		if errors.Is(err, aggregate.ErrAggregateNotFound) {
+			_ = c.String(http.StatusNotFound, "Account not found")
+		}
+	}
 
 	log.Fatal(e.Start(":8080"))
 }
@@ -62,9 +66,7 @@ func NewOpenAccountHandlerFunc(eventStore *eventstore.EventStore) echo.HandlerFu
 	store := aggregate.NewStore[*account.Account](eventStore)
 
 	return func(c echo.Context) error {
-		id := fmt.Sprintf("%d-%d", time.Now().Unix(), rand.Int())
-
-		acc, err := account.New(account.ID(id), "John Doe")
+		acc, err := account.New(account.NewID(), "John Doe")
 		if err != nil {
 			return err
 		}
@@ -93,16 +95,12 @@ func NewDepositToAccountHandlerFunc(eventStore *eventstore.EventStore) echo.Hand
 			ctx = c.Request().Context()
 		)
 
-		err := store.FindByID(ctx, c.Param("id"), &acc)
+		err := store.ByID(ctx, c.Param("id"), &acc)
 		if err != nil {
-			if errors.Is(err, aggregate.ErrAggregateNotFound) {
-				return c.String(http.StatusNotFound, "Account not found")
-			}
-
 			return err
 		}
 
-		amount := 100
+		amount, _ := strconv.Atoi(c.Param("amount"))
 
 		acc.Deposit(amount)
 
@@ -114,6 +112,48 @@ func NewDepositToAccountHandlerFunc(eventStore *eventstore.EventStore) echo.Hand
 		return c.JSON(
 			http.StatusOK,
 			depositResp{
+				AccountID:  acc.ID(),
+				NewBalance: acc.Balance,
+			},
+		)
+	}
+}
+
+type withdrawResp struct {
+	AccountID  string `json:"account_id"`
+	NewBalance int    `json:"new_balance"`
+}
+
+// NewWithdrawFromAccountHandlerFunc creates new withdraw from account endpoint example
+func NewWithdrawFromAccountHandlerFunc(eventStore *eventstore.EventStore) echo.HandlerFunc {
+	store := aggregate.NewStore[*account.Account](eventStore)
+
+	return func(c echo.Context) error {
+		var (
+			acc account.Account
+			ctx = c.Request().Context()
+		)
+
+		err := store.ByID(ctx, c.Param("id"), &acc)
+		if err != nil {
+			return err
+		}
+
+		amount, _ := strconv.Atoi(c.Param("amount"))
+
+		err = acc.Withdraw(amount)
+		if err != nil {
+			return c.String(http.StatusBadRequest, err.Error())
+		}
+
+		err = store.Save(ctx, &acc)
+		if err != nil {
+			return err
+		}
+
+		return c.JSON(
+			http.StatusOK,
+			withdrawResp{
 				AccountID:  acc.ID(),
 				NewBalance: acc.Balance,
 			},

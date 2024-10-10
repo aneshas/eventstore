@@ -33,8 +33,8 @@ type Projector struct {
 	logger      *log.Logger
 }
 
-// Projection represents a projection that should be able to handle
-// projected events
+// Projection is basically a function which needs to handle a stored event.
+// It will be called for each event that comes in
 type Projection func(StoredEvent) error
 
 // Add effectively registers a projection with the projector
@@ -113,7 +113,7 @@ func (p *Projector) logErr(err error) {
 	p.logger.Printf("projector error: %v", err)
 }
 
-// FlushAfter wraps the projection passed in and it calls
+// FlushAfter wraps the projection passed in, and it calls
 // the projection itself as new events come (as usual) in addition to calling
 // the provided flush function periodically each time flush interval expires
 func FlushAfter(
@@ -121,19 +121,19 @@ func FlushAfter(
 	flush func() error,
 	flushInt time.Duration) Projection {
 	work := make(chan StoredEvent, 1)
-	errors := make(chan error, 2)
+	errs := make(chan error, 2)
 
 	go func() {
 		for {
 			select {
 			case <-time.After(flushInt):
 				if err := flush(); err != nil {
-					errors <- err
+					errs <- err
 				}
 
 			case w := <-work:
 				if err := p(w); err != nil {
-					errors <- err
+					errs <- err
 				}
 			}
 		}
@@ -141,7 +141,7 @@ func FlushAfter(
 
 	return func(data StoredEvent) error {
 		select {
-		case err := <-errors:
+		case err := <-errs:
 			return err
 
 		default:

@@ -66,7 +66,7 @@ func NewJSONFileProjection(fName string) eventstore.Projection {
 			switch data.Event.(type) {
 			case account.NewAccountOpened:
 				evt := data.Event.(account.NewAccountOpened)
-				accounts = append(accounts, fmt.Sprintf("Account: #%s | Holder: %s", evt.AccountID, evt.Holder))
+				accounts = append(accounts, fmt.Sprintf("Account: #%s Holder: %s", evt.AccountID, evt.Holder))
 			default:
 				fmt.Println("not interested in this event")
 			}

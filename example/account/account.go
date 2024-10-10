@@ -1,13 +1,16 @@
 package account
 
 import (
+	"fmt"
 	"github.com/aneshas/eventstore/aggregate"
 )
 
-// New creates new Account
+// New opens a new Account
 func New(id ID, holder string) (*Account, error) {
 	var acc Account
 
+	// We always need to call Rehydrate on a fresh instance in order to initialize the aggregate
+	// so the events can be applied to it properly
 	acc.Rehydrate(&acc)
 
 	acc.Apply(
@@ -20,17 +23,9 @@ func New(id ID, holder string) (*Account, error) {
 	return &acc, nil
 }
 
-// ID represents an account ID
-type ID string
-
-// String implements fmt.Stringer
-func (id ID) String() string { return string(id) }
-
 // Account represents an account aggregate
 type Account struct {
 	aggregate.Root[ID]
-
-	// notice how aggregate has no state until it is needed to make a decision
 
 	Balance int
 }
@@ -47,12 +42,32 @@ func (a *Account) Deposit(amount int) {
 	)
 }
 
+// Withdraw money
+func (a *Account) Withdraw(amount int) error {
+	if a.Balance < amount {
+		return fmt.Errorf("insufficient funds")
+	}
+
+	a.Apply(
+		WithdrawalMade{
+			Amount: amount,
+		},
+	)
+
+	return nil
+}
+
 // OnNewAccountOpened handler
 func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
-	a.SetID(ID(evt.AccountID))
+	a.SetID(ParseID(evt.AccountID))
 }
 
 // OnDepositMade handler
 func (a *Account) OnDepositMade(evt DepositMade) {
 	a.Balance += evt.Amount
+}
+
+// OnWithdrawalMade handler
+func (a *Account) OnWithdrawalMade(evt WithdrawalMade) {
+	a.Balance -= evt.Amount
 }

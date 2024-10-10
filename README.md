@@ -26,7 +26,9 @@ with `almost` (tested sqlite and postgres) whatever underlying database gorm wil
 - Reading events from the stream
 - Reading all events
 - Subscribing (streaming) all events from the event store (real-time)
-- Fault-tolerant projection system (Projector)
+- Aggregate root abstraction to manage rehydration and event application
+- Generic aggregate store implementation used to read and save aggregates (events)
+- Fault-tolerant projection system (Projector) which can be used to build read models for testing purposes
 
 ## Example
 

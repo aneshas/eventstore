@@ -75,8 +75,8 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 	)
 }
 
-// FindByID finds aggregate events by its id and rehydrates the aggregate
-func (s *Store[T]) FindByID(ctx context.Context, id string, root T) error {
+// ByID finds aggregate events by its stream id and rehydrates the aggregate
+func (s *Store[T]) ByID(ctx context.Context, id string, root T) error {
 	storedEvents, err := s.eventStore.ReadStream(ctx, id)
 	if err != nil {
 		if errors.Is(err, eventstore.ErrStreamNotFound) {

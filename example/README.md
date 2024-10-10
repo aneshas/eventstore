@@ -1,4 +1,4 @@
-# Eventstore Example
+# EventStore Example
 
 This example shows a simplistic but typical event-sourcing use case scenario.
 
