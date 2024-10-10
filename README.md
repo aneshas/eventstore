@@ -6,8 +6,8 @@
 
 # TODO 
 - [ ] store tests
-- [ ] add postgres tests with test-containers (with flag?)
-- [ ] upgrade packages
+- [x] add postgres tests with test-containers (with flag?)
+- [x] upgrade packages
 - [x] autogenerate ID in aggregate
 - [ ] WithDB option to pass db connection - eg. for encore?
 - [ ] complete example with echo and mutation
@@ -18,7 +18,7 @@
 - [x] json encoding/decoding for events types - better way?
 
 Embeddable EventStore implementation written in Go using gorm as an underlying persistence mechanism meaning it will work
-with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver).
+with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver - sqlite and postgres provided).
 
 ## Features
 

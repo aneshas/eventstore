@@ -14,7 +14,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/mattn/go-sqlite3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -71,7 +70,9 @@ func New(enc Encoder, opts ...Option) (*EventStore, error) {
 		dial = sqlite.Open(cfg.SQLitePath)
 	}
 
-	db, err := gorm.Open(dial, &gorm.Config{})
+	db, err := gorm.Open(dial, &gorm.Config{
+		TranslateError: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -241,15 +242,7 @@ func (es *EventStore) AppendStream(
 
 	tx := es.db.WithContext(ctx).Create(&eventsToSave)
 
-	err := tx.Error
-
-	// TODO - this is a bit of a hack - we should probably check for the error code or smth
-	// check postgres also
-	if e, ok := err.(sqlite3.Error); ok && e.Code == 19 {
-		return ErrConcurrencyCheckFailed
-	}
-
-	if errors.Is(err, gorm.ErrDuplicatedKey) {
+	if errors.Is(tx.Error, gorm.ErrDuplicatedKey) {
 		return ErrConcurrencyCheckFailed
 	}
 

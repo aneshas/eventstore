@@ -3,14 +3,21 @@ package eventstore_test
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
 	"io"
+	"log"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/aneshas/eventstore"
 )
+
+var withPG = flag.Bool("withpg", false, "run tests with postgres")
 
 type SomeEvent struct {
 	UserID string
@@ -589,6 +596,48 @@ func eventStore(t *testing.T) (*eventstore.EventStore, func()) {
 }
 
 func eventStoreWithDec(t *testing.T, enc eventstore.Encoder) (*eventstore.EventStore, func()) {
+	t.Helper()
+
+	if *withPG {
+		ctx := context.Background()
+
+		dbName := "event-store"
+		dbUser := "user"
+		dbPassword := "password"
+
+		postgresContainer, err := postgres.Run(
+			ctx,
+			"docker.io/postgres:16-alpine",
+			postgres.WithDatabase(dbName),
+			postgres.WithUsername(dbUser),
+			postgres.WithPassword(dbPassword),
+			testcontainers.WithWaitStrategy(
+				wait.ForLog("database system is ready to accept connections").
+					WithOccurrence(2).
+					WithStartupTimeout(5*time.Second)),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dsn, err := postgresContainer.ConnectionString(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		es, err := eventstore.New(enc, eventstore.WithPostgresDB(dsn))
+		if err != nil {
+			t.Fatalf("error creating es: %v", err)
+		}
+
+		return es, func() {
+			if err := postgresContainer.Stop(ctx, nil); err != nil {
+				// if err := testcontainers.TerminateContainer(postgresContainer); err != nil {
+				log.Fatalf("failed to terminate container: %s", err)
+			}
+		}
+	}
+
 	es, err := eventstore.New(enc, eventstore.WithSQLiteDB("file::memory:?cache=shared"))
 	if err != nil {
 		t.Fatalf("error creating es: %v", err)

@@ -20,7 +20,8 @@ jobs:
       - name: Test
         run: |
           go mod tidy
-          go test -race -covermode=atomic -coverprofile=coverage.out -v `go list ./... | grep -v ./example` -integration
+          go test -race -withpg -v . 
+          go test -race -covermode=atomic -coverprofile=coverage.out -v `go list ./... | grep -v ./example`
 
       - name: Install goveralls
         run: go install github.com/mattn/goveralls@latest
