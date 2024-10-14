@@ -2,19 +2,31 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore-example/account"
 	"github.com/aneshas/eventstore/aggregate"
 	"github.com/labstack/echo/v4"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 )
 
+var pg = flag.Bool("pg", false, "Run with postgres db (set env DSN to pg connection string)")
+
 func main() {
+	flag.Parse()
+
+	db := eventstore.WithSQLiteDB("example.db")
+
+	if *pg {
+		db = eventstore.WithPostgresDB(os.Getenv("DSN"))
+	}
+
 	eventStore, err := eventstore.New(
 		eventstore.NewJSONEncoder(account.Events...),
-		eventstore.WithSQLiteDB("example.db"),
+		db,
 	)
 	checkErr(err)
 

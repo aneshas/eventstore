@@ -2,3 +2,4 @@
 .DS_Store
 example.db
 accounts.json
+fly.toml

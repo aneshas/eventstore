@@ -48,6 +48,7 @@ func NewConsoleOutputProjection() eventstore.Projection {
 		case account.NewAccountOpened:
 			evt := data.Event.(account.NewAccountOpened)
 			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.AccountID, evt.Holder)
+
 		default:
 			fmt.Println("not interested in this event")
 		}

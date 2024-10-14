@@ -62,11 +62,13 @@ func (p *Projector) Run(ctx context.Context) error {
 					return
 				}
 
-				defer sub.Close()
-
 				if err := p.run(ctx, sub, projection); err != nil {
+					sub.Close()
+
 					continue
 				}
+
+				sub.Close()
 
 				return
 			}

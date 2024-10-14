@@ -4,12 +4,12 @@ go 1.23
 
 require (
 	github.com/aneshas/eventstore v0.3.0
+	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v4 v4.12.0
-	gorm.io/driver/sqlite v1.5.6
 )
 
 require (
-	github.com/google/uuid v1.6.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.7.1 // indirect
@@ -27,7 +27,9 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 	gorm.io/driver/postgres v1.5.9 // indirect
+	gorm.io/driver/sqlite v1.5.6 // indirect
 	gorm.io/gorm v1.25.12 // indirect
 )
 

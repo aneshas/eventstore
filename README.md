@@ -6,19 +6,14 @@
 
 # TODO 
 - [ ] store tests
-- [x] add postgres tests with test-containers (with flag?)
-- [x] upgrade packages
-- [x] autogenerate ID in aggregate
-- [ ] WithDB option to pass db connection - eg. for encore?
-- [ ] complete example with echo and mutation
-- [ ] for projections - ignore missing json types - don't throw error (this implies projection is not interested)
+- [ ] for projections (both built in and ambar) - ignore missing json types - don't throw error (this implies projection is not interested)
 - [ ] alternate On method with Event and alternate apply for id
-- [x] correlation from context (helper methods in aggregate to set correlation and meta)
-- [ ] projections only for simple local testing simplify and document
-- [x] json encoding/decoding for events types - better way?
 
-Embeddable EventStore implementation written in Go using gorm as an underlying persistence mechanism meaning it will work
+Embeddable SQL EventStore written in Go using gorm as an underlying persistence mechanism meaning - it will work
 with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver - sqlite and postgres provided).
+
+It is also equiped with a fault-tolerant projection system that can be used to build read models for testing purposes and is also ready for 
+production workloads in combination with [Ambar.cloud](https://ambar.cloud/) using the provided ambar package.
 
 ## Features
 
@@ -29,6 +24,7 @@ with `almost` (tested sqlite and postgres) whatever underlying database gorm wil
 - Aggregate root abstraction to manage rehydration and event application
 - Generic aggregate store implementation used to read and save aggregates (events)
 - Fault-tolerant projection system (Projector) which can be used to build read models for testing purposes
+- [Ambar.cloud](https://ambar.cloud/) data destination integration for production projection workloads - see [example](example/)
 
 ## Example
 

@@ -11,6 +11,7 @@ func New(id ID, holder string) (*Account, error) {
 
 	// We always need to call Rehydrate on a fresh instance in order to initialize the aggregate
 	// so the events can be applied to it properly
+	// (aggregate.Store ByID will do this automatically for us when we load an aggregate from the event store)
 	acc.Rehydrate(&acc)
 
 	acc.Apply(
@@ -32,9 +33,6 @@ type Account struct {
 
 // Deposit money
 func (a *Account) Deposit(amount int) {
-	// for example: check if amount is positive or account is not closed
-
-	// if all good, do the mutation by applying the event
 	a.Apply(
 		DepositMade{
 			Amount: amount,

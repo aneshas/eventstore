@@ -132,14 +132,14 @@ func (es *EventStore) Close() error {
 type gormEvent struct {
 	ID                 string `gorm:"unique"`
 	Sequence           uint64 `gorm:"autoIncrement;primaryKey"`
-	Type               string
+	Type               string `gorm:"index:event_store_idx_type"`
 	Data               string
 	Meta               *string
-	CausationEventID   *string
-	CorrelationEventID *string
-	StreamID           string    `gorm:"index:idx_optimistic_check,unique;index"`
-	StreamVersion      int       `gorm:"index:idx_optimistic_check,unique"`
-	OccurredOn         time.Time `gorm:"autoCreateTime"`
+	CausationEventID   *string   `gorm:"index:event_store_idx_causation_id"`
+	CorrelationEventID *string   `gorm:"index:event_store_idx_correlation_id"`
+	StreamID           string    `gorm:"index:event_store_idx_optimistic_check,unique;index"`
+	StreamVersion      int       `gorm:"index:event_store_idx_optimistic_check,unique"`
+	OccurredOn         time.Time `gorm:"index:event_store_idx_occurred_on;autoCreateTime"`
 }
 
 // TableName returns gorm table name
