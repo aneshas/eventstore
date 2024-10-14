@@ -4,11 +4,6 @@
 [![Coverage Status](https://coveralls.io/repos/github/aneshas/eventstore/badge.svg)](https://coveralls.io/github/aneshas/eventstore)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aneshas/eventstore)](https://goreportcard.com/report/github.com/aneshas/eventstore)
 
-# TODO 
-- [ ] store tests
-- [ ] for projections (both built in and ambar) - ignore missing json types - don't throw error (this implies projection is not interested)
-- [ ] alternate On method with Event and alternate apply for id
-
 Embeddable SQL EventStore written in Go using gorm as an underlying persistence mechanism meaning - it will work
 with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver - sqlite and postgres provided).
 
