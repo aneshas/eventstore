@@ -19,6 +19,9 @@ import (
 )
 
 var (
+	// ErrEventNotRegistered indicates that the event is not registered with the encoder
+	ErrEventNotRegistered = errors.New("event not registered with encoder")
+
 	// ErrStreamNotFound indicates that the requested stream does not exist in the event store
 	ErrStreamNotFound = errors.New("stream not found")
 

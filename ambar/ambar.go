@@ -3,10 +3,13 @@ package ambar
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/aneshas/eventstore"
+	"github.com/relvacode/iso8601"
 )
 
-// TODO - Define different error types eg - retry - for ambar policies
+// ErrRetry is the error returned when a retry is required
+var ErrRetry = errors.New("retry")
 
 // New constructs a new Ambar projection handler
 func New(dec Decoder) *Ambar {
@@ -23,13 +26,15 @@ type Ambar struct {
 	dec Decoder
 }
 
-type req struct {
-	Payload payload `json:"payload"`
+// Req is the ambar projection request
+type Req struct {
+	Payload Payload `json:"payload"`
 }
 
-type payload struct {
+// Payload is the ambar projection request payload
+type Payload struct {
 	Event              string  `json:"data"`
-	Meta               string  `json:"meta"`
+	Meta               *string `json:"meta"`
 	ID                 string  `json:"id"`
 	Sequence           uint64  `json:"sequence"`
 	Type               string  `json:"type"`
@@ -41,13 +46,13 @@ type payload struct {
 }
 
 // Project projects ambar event to provided projection
+// It will always return ambar retry policy error if deserilization fails
 func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, data []byte) error {
-	var event req
+	var event Req
 
 	err := json.Unmarshal(data, &event)
 	if err != nil {
-		// retry or ?
-		return err
+		return errors.Join(err, ErrRetry)
 	}
 
 	decoded, err := a.dec.Decode(&eventstore.EncodedEvt{
@@ -55,21 +60,37 @@ func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, dat
 		Type: event.Payload.Type,
 	})
 	if err != nil {
-		// if error is no event registered - ignore
-		return err
+		if errors.Is(err, eventstore.ErrEventNotRegistered) {
+			return nil
+		}
+
+		return errors.Join(err, ErrRetry)
 	}
 
-	// parse occurred_on
-	// parse meta
+	occurredOn, err := iso8601.ParseString(event.Payload.OccurredOn)
+	if err != nil {
+		return errors.Join(err, ErrRetry)
+	}
+
+	var meta map[string]string
+
+	if event.Payload.Meta != nil {
+		err = json.Unmarshal([]byte(*event.Payload.Meta), &meta)
+		if err != nil {
+			return errors.Join(err, ErrRetry)
+		}
+	}
 
 	return projection(eventstore.StoredEvent{
 		Event:              decoded,
 		ID:                 event.Payload.ID,
+		Meta:               meta,
 		Sequence:           event.Payload.Sequence,
 		Type:               event.Payload.Type,
 		CausationEventID:   event.Payload.CausationEventID,
 		CorrelationEventID: event.Payload.CorrelationEventID,
 		StreamID:           event.Payload.StreamID,
 		StreamVersion:      event.Payload.StreamVersion,
+		OccurredOn:         occurredOn,
 	})
 }

@@ -14,10 +14,6 @@ import (
 func main() {
 	e := echo.New()
 
-	hf := echoambar.Wrap(
-		ambar.New(eventstore.NewJSONEncoder(eventSubscriptions...)),
-	)
-
 	e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
 		if username == "user" && password == "pass" {
 			return true, nil
@@ -25,6 +21,10 @@ func main() {
 
 		return false, nil
 	}))
+
+	hf := echoambar.Wrap(
+		ambar.New(eventstore.NewJSONEncoder(eventSubscriptions...)),
+	)
 
 	e.POST("/projections/accounts/v1", hf(NewConsoleOutputProjection()))
 

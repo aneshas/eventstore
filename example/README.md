@@ -54,3 +54,5 @@ Ambar data-source configuration example for the above configuration:
 
 After everything has been wired up you can run/deploy `ambar_projections` binary which exposes a single projection endpoint
 (`/projections/accounts/v1`) to be used with Ambar data destination.
+
+Set your data-destination username and password to `user` and `pass` respectively

@@ -2,7 +2,6 @@ package eventstore
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 )
 
@@ -44,7 +43,7 @@ func (e *JsonEncoder) Encode(evt any) (*EncodedEvt, error) {
 func (e *JsonEncoder) Decode(evt *EncodedEvt) (any, error) {
 	t, ok := e.types[evt.Type]
 	if !ok {
-		return nil, fmt.Errorf("event not registered via NewJSONEncoder")
+		return nil, ErrEventNotRegistered
 	}
 
 	v := reflect.New(t)
