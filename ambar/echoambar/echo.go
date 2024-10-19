@@ -1,6 +1,8 @@
 package echoambar
 
 import (
+	"context"
+	"errors"
 	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore/ambar"
 	"github.com/labstack/echo/v4"
@@ -8,8 +10,15 @@ import (
 	"net/http"
 )
 
+var _ Projector = (*ambar.Ambar)(nil)
+
+// Projector is an interface for projecting events
+type Projector interface {
+	Project(ctx context.Context, projection eventstore.Projection, data []byte) error
+}
+
 // Wrap returns a func wrapper around Ambar projection handler which adapts it to echo.HandlerFunc
-func Wrap(a *ambar.Ambar) func(projection eventstore.Projection) echo.HandlerFunc {
+func Wrap(a Projector) func(projection eventstore.Projection) echo.HandlerFunc {
 	return func(projection eventstore.Projection) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			r := c.Request()
@@ -21,16 +30,14 @@ func Wrap(a *ambar.Ambar) func(projection eventstore.Projection) echo.HandlerFun
 
 			err = a.Project(r.Context(), projection, req)
 			if err != nil {
-				// response based on error
+				if errors.Is(err, ambar.ErrKeepItGoing) {
+					return c.JSONBlob(http.StatusOK, []byte(ambar.KeepGoingResp))
+				}
 
-				return err
+				return c.JSONBlob(http.StatusOK, []byte(ambar.RetryResp))
 			}
 
-			return c.JSONBlob(http.StatusOK, []byte(`{
-  "result": {
-    "success": {}
-  }
-}`))
+			return c.JSONBlob(http.StatusOK, []byte(ambar.SuccessResp))
 		}
 	}
 }

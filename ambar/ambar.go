@@ -8,8 +8,46 @@ import (
 	"github.com/relvacode/iso8601"
 )
 
-// ErrRetry is the error returned when a retry is required
-var ErrRetry = errors.New("retry")
+var (
+	// ErrRetry is the error returned when a retry is required
+	ErrRetry = errors.New("retry")
+
+	// ErrKeepItGoing is the error returned when we want to keep projecting
+	// events in case of an error
+	ErrKeepItGoing = errors.New("keep it going")
+)
+
+// SuccessResp is the success response
+// https://docs.ambar.cloud/#Data%20Destinations
+var SuccessResp = `{
+  "result": {
+    "success": {}
+  }
+}`
+
+// RetryResp is the retry response
+// https://docs.ambar.cloud/#Data%20Destinations
+var RetryResp = `{
+  "result": {
+    "error": {
+      "policy": "must_retry", 
+      "class": "must retry it", 
+      "description": "must retry it"
+    }
+  }
+}`
+
+// KeepGoingResp is the keep going response
+// https://docs.ambar.cloud/#Data%20Destinations
+var KeepGoingResp = `{
+  "result": {
+    "error": {
+      "policy": "keep_going", 
+      "class": "keep it going", 
+      "description": "keep it going"
+    }
+  }
+}`
 
 // New constructs a new Ambar projection handler
 func New(dec Decoder) *Ambar {
