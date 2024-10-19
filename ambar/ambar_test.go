@@ -49,7 +49,7 @@ func TestShould_Retry_On_Bad_Date_Format(t *testing.T) {
 
 	err := a.Project(nil, nil, testutil.Payload(t, p))
 
-	assert.ErrorIs(t, err, ambar.ErrRetry)
+	assert.Error(t, err)
 }
 
 func TestShould_Retry_On_Bad_Meta_Format(t *testing.T) {
@@ -63,7 +63,7 @@ func TestShould_Retry_On_Bad_Meta_Format(t *testing.T) {
 
 	err := a.Project(nil, nil, testutil.Payload(t, p))
 
-	assert.ErrorIs(t, err, ambar.ErrRetry)
+	assert.Error(t, err)
 }
 
 func TestShould_Not_Retry_On_Unregistered_Event(t *testing.T) {

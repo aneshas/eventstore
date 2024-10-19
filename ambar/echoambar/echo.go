@@ -30,6 +30,10 @@ func Wrap(a Projector) func(projection eventstore.Projection) echo.HandlerFunc {
 
 			err = a.Project(r.Context(), projection, req)
 			if err != nil {
+				if errors.Is(err, ambar.ErrNoRetry) {
+					return c.JSONBlob(http.StatusOK, []byte(ambar.SuccessResp))
+				}
+
 				if errors.Is(err, ambar.ErrKeepItGoing) {
 					return c.JSONBlob(http.StatusOK, []byte(ambar.KeepGoingResp))
 				}

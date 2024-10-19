@@ -9,8 +9,11 @@ import (
 )
 
 var (
-	// ErrRetry is the error returned when a retry is required
-	ErrRetry = errors.New("retry")
+	// ErrNoRetry is the error returned when we don't want to retry
+	// projecting events in case of an error.
+	// This is also the default behavior when an error is returned but this
+	// error can be used if we also want to wrap the error eg. for logging
+	ErrNoRetry = errors.New("retry")
 
 	// ErrKeepItGoing is the error returned when we want to keep projecting
 	// events in case of an error
@@ -90,7 +93,7 @@ func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, dat
 
 	err := json.Unmarshal(data, &event)
 	if err != nil {
-		return errors.Join(err, ErrRetry)
+		return err
 	}
 
 	decoded, err := a.dec.Decode(&eventstore.EncodedEvt{
@@ -102,12 +105,12 @@ func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, dat
 			return nil
 		}
 
-		return errors.Join(err, ErrRetry)
+		return err
 	}
 
 	occurredOn, err := iso8601.ParseString(event.Payload.OccurredOn)
 	if err != nil {
-		return errors.Join(err, ErrRetry)
+		return err
 	}
 
 	var meta map[string]string
@@ -115,7 +118,7 @@ func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, dat
 	if event.Payload.Meta != nil {
 		err = json.Unmarshal([]byte(*event.Payload.Meta), &meta)
 		if err != nil {
-			return errors.Join(err, ErrRetry)
+			return err
 		}
 	}
 

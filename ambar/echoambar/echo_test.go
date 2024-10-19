@@ -56,20 +56,20 @@ func TestShould_Project_With_KeepItGoing(t *testing.T) {
 	assert.Equal(t, ambar.KeepGoingResp, rec.Body.String())
 }
 
-func TestShould_Project_With_Retry(t *testing.T) {
+func TestShould_Project_With_No_Retry(t *testing.T) {
 	var p projector
 
-	p.wantErr = ambar.ErrRetry
+	p.wantErr = ambar.ErrNoRetry
 
 	rec, err := project(t, &p, testPayload)
 
 	assert.NoError(t, err)
 	assert.Equal(t, testPayload, string(p.data))
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, ambar.RetryResp, rec.Body.String())
+	assert.Equal(t, ambar.SuccessResp, rec.Body.String())
 }
 
-func TestShould_Project_With_Retry_As_Fallback(t *testing.T) {
+func TestShould_Project_With_Retry(t *testing.T) {
 	var p projector
 
 	p.wantErr = fmt.Errorf("some arbitrary error")
