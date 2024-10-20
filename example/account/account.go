@@ -66,6 +66,6 @@ func (a *Account) OnDepositMade(evt DepositMade) {
 }
 
 // OnWithdrawalMade handler
-func (a *Account) OnWithdrawalMade(evt WithdrawalMade) {
+func (a *Account) OnWithdrawalMade(evt WithdrawalMade, _ aggregate.Event) {
 	a.Balance -= evt.Amount
 }

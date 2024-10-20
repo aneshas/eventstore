@@ -84,7 +84,9 @@ func (a *Root[T]) Events() []Event {
 //
 // If it produces event of type: SomethingImportantHappened
 // Derived aggregate should have the following method implemented:
-// func (a *SomeAggregate) OnSomethingImportantHappened(e SomethingImportantHappened) error
+// func (a *SomeAggregate) OnSomethingImportantHappened(event SomethingImportantHappened) error
+// or
+// func (a *SomeAggregate) OnSomethingImportantHappened(event SomethingImportantHappened, extra aggregate.Event) error
 func (a *Root[T]) Apply(events ...any) {
 	if !a.ptr.IsValid() {
 		panic(ErrAggregateRootNotRehydrated)
@@ -102,6 +104,23 @@ func (a *Root[T]) Apply(events ...any) {
 	}
 }
 
+// ApplyWithID applies single event and mutates aggregate (calls respective event handle) and sets event ID explicitly.
+// See Apply for more details.
+func (a *Root[T]) ApplyWithID(eventID string, event any) {
+	if !a.ptr.IsValid() {
+		panic(ErrAggregateRootNotRehydrated)
+	}
+
+	e := Event{
+		ID:         eventID,
+		E:          event,
+		OccurredOn: time.Now().UTC(),
+	}
+
+	a.mutate(e)
+	a.appendEvent(e)
+}
+
 func (a *Root[T]) mutate(evt Event) {
 	ev := reflect.TypeOf(evt.E)
 
@@ -109,10 +128,17 @@ func (a *Root[T]) mutate(evt Event) {
 
 	h := a.ptr.MethodByName(hName)
 
-	// TODO - Add alternate method also
-
 	if !h.IsValid() {
 		panic(ErrMissingAggregateEventHandler)
+	}
+
+	if h.Type().NumIn() == 2 {
+		h.Call([]reflect.Value{
+			reflect.ValueOf(evt.E),
+			reflect.ValueOf(evt),
+		})
+
+		return
 	}
 
 	h.Call([]reflect.Value{

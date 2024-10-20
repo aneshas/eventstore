@@ -87,7 +87,7 @@ type Payload struct {
 }
 
 // Project projects ambar event to provided projection
-// It will always return ambar retry policy error if deserilization fails
+// It will always return ambar retry policy error if deserialization fails
 func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, data []byte) error {
 	var event Req
 
