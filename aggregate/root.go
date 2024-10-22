@@ -21,7 +21,7 @@ var (
 
 // Rooter represents an aggregate root interface
 type Rooter interface {
-	ID() string
+	StringID() string
 	Events() []Event
 	Version() int
 	Rehydrate(acc any, events ...Event)
@@ -31,7 +31,7 @@ type Rooter interface {
 // base type which provides helpers for easy aggregate initialization and
 // event handler execution
 type Root[T fmt.Stringer] struct {
-	id T
+	ID T
 
 	version      int
 	domainEvents []Event
@@ -39,14 +39,9 @@ type Root[T fmt.Stringer] struct {
 	ptr reflect.Value
 }
 
-// SetID sets aggregate ID
-func (a *Root[T]) SetID(id T) {
-	a.id = id
-}
-
-// ID returns aggregate ID
-func (a *Root[T]) ID() string {
-	return a.id.String()
+// StringID returns aggregate ID string
+func (a *Root[T]) StringID() string {
+	return a.ID.String()
 }
 
 // Rehydrate is used to construct and rehydrate the aggregate from events

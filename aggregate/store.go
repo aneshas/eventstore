@@ -69,7 +69,7 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 
 	return s.eventStore.AppendStream(
 		ctx,
-		aggregate.ID(),
+		aggregate.StringID(),
 		aggregate.Version(),
 		events,
 	)

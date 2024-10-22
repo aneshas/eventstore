@@ -57,7 +57,7 @@ func (a *Account) Withdraw(amount int) error {
 
 // OnNewAccountOpened handler
 func (a *Account) OnNewAccountOpened(evt NewAccountOpened) {
-	a.SetID(ParseID(evt.AccountID))
+	a.ID = ParseID(evt.AccountID)
 }
 
 // OnDepositMade handler

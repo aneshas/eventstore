@@ -73,7 +73,7 @@ func (f *foo) doStuff() {
 
 // OnFooEvent handler
 func (f *foo) OnfooEvent(evt fooEvent) {
-	f.SetID(ID(evt.Foo))
+	f.ID = ID(evt.Foo)
 }
 
 func TestShould_Save_Aggregate_Events(t *testing.T) {
@@ -188,7 +188,7 @@ func TestShould_Rehydrate_Aggregate(t *testing.T) {
 	err := store.ByID(context.Background(), "", &f)
 
 	assert.NoError(t, err)
-	assert.Equal(t, "foo-1", f.ID())
+	assert.Equal(t, "foo-1", f.StringID())
 	assert.Equal(t, 2, f.Version())
 	assert.Len(t, f.Events(), 0)
 }
