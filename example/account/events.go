@@ -16,10 +16,12 @@ type NewAccountOpened struct {
 
 // DepositMade domain event indicates that deposit has been made
 type DepositMade struct {
-	Amount int
+	AccountID string
+	Amount    int
 }
 
 // WithdrawalMade domain event indicates that withdrawal has been made
 type WithdrawalMade struct {
-	Amount int
+	AccountID string
+	Amount    int
 }

@@ -35,7 +35,8 @@ type Account struct {
 func (a *Account) Deposit(amount int) {
 	a.Apply(
 		DepositMade{
-			Amount: amount,
+			AccountID: a.StringID(),
+			Amount:    amount,
 		},
 	)
 }
@@ -48,7 +49,8 @@ func (a *Account) Withdraw(amount int) error {
 
 	a.Apply(
 		WithdrawalMade{
-			Amount: amount,
+			AccountID: a.StringID(),
+			Amount:    amount,
 		},
 	)
 

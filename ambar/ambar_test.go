@@ -7,6 +7,7 @@ import (
 	"github.com/aneshas/eventstore/ambar/testutil"
 	"github.com/relvacode/iso8601"
 	"github.com/stretchr/testify/assert"
+	"net/http"
 	"testing"
 )
 
@@ -18,7 +19,7 @@ func TestShould_Project_Required_Data(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	projection := func(data eventstore.StoredEvent) error {
+	projection := func(_ *http.Request, data eventstore.StoredEvent) error {
 		assert.Equal(t, eventstore.StoredEvent{
 			Event:              testutil.Event,
 			Meta:               nil,
@@ -96,7 +97,7 @@ func TestShould_Project_Optional_Data(t *testing.T) {
 
 	var a = ambar.New(eventstore.NewJSONEncoder(testutil.TestEvent{}))
 
-	projection := func(data eventstore.StoredEvent) error {
+	projection := func(_ *http.Request, data eventstore.StoredEvent) error {
 		assert.Equal(t, correlationEventID, *data.CorrelationEventID)
 		assert.Equal(t, causationEventID, *data.CausationEventID)
 		assert.Equal(t, meta, data.Meta)

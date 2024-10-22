@@ -1,9 +1,7 @@
 package echoambar_test
 
 import (
-	"context"
 	"fmt"
-	"github.com/aneshas/eventstore"
 	"github.com/aneshas/eventstore/ambar"
 	"github.com/aneshas/eventstore/ambar/echoambar"
 	"github.com/labstack/echo/v4"
@@ -22,7 +20,7 @@ type projector struct {
 }
 
 // Project projects ambar event to provided projection
-func (p *projector) Project(_ context.Context, _ eventstore.Projection, data []byte) error {
+func (p *projector) Project(_ *http.Request, _ ambar.Projection, data []byte) error {
 	p.data = data
 
 	if p.wantErr != nil {

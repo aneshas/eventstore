@@ -1,11 +1,11 @@
 package ambar
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/aneshas/eventstore"
 	"github.com/relvacode/iso8601"
+	"net/http"
 )
 
 var (
@@ -86,9 +86,12 @@ type Payload struct {
 	OccurredOn         string  `json:"occurred_on"`
 }
 
+// Projection is an ambar projection function
+type Projection func(*http.Request, eventstore.StoredEvent) error
+
 // Project projects ambar event to provided projection
 // It will always return ambar retry policy error if deserialization fails
-func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, data []byte) error {
+func (a *Ambar) Project(r *http.Request, projection Projection, data []byte) error {
 	var event Req
 
 	err := json.Unmarshal(data, &event)
@@ -122,16 +125,18 @@ func (a *Ambar) Project(_ context.Context, projection eventstore.Projection, dat
 		}
 	}
 
-	return projection(eventstore.StoredEvent{
-		Event:              decoded,
-		ID:                 event.Payload.ID,
-		Meta:               meta,
-		Sequence:           event.Payload.Sequence,
-		Type:               event.Payload.Type,
-		CausationEventID:   event.Payload.CausationEventID,
-		CorrelationEventID: event.Payload.CorrelationEventID,
-		StreamID:           event.Payload.StreamID,
-		StreamVersion:      event.Payload.StreamVersion,
-		OccurredOn:         occurredOn,
-	})
+	return projection(
+		r,
+		eventstore.StoredEvent{
+			Event:              decoded,
+			ID:                 event.Payload.ID,
+			Meta:               meta,
+			Sequence:           event.Payload.Sequence,
+			Type:               event.Payload.Type,
+			CausationEventID:   event.Payload.CausationEventID,
+			CorrelationEventID: event.Payload.CorrelationEventID,
+			StreamID:           event.Payload.StreamID,
+			StreamVersion:      event.Payload.StreamVersion,
+			OccurredOn:         occurredOn,
+		})
 }

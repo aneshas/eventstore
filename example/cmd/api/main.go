@@ -88,7 +88,7 @@ func NewOpenAccountHandlerFunc(eventStore *eventstore.EventStore) echo.HandlerFu
 			return err
 		}
 
-		return c.JSON(http.StatusCreated, newAccountResp{AccountID: acc.ID()})
+		return c.JSON(http.StatusCreated, newAccountResp{AccountID: acc.StringID()})
 	}
 }
 
@@ -124,7 +124,7 @@ func NewDepositToAccountHandlerFunc(eventStore *eventstore.EventStore) echo.Hand
 		return c.JSON(
 			http.StatusOK,
 			depositResp{
-				AccountID:  acc.ID(),
+				AccountID:  acc.StringID(),
 				NewBalance: acc.Balance,
 			},
 		)
@@ -166,7 +166,7 @@ func NewWithdrawFromAccountHandlerFunc(eventStore *eventstore.EventStore) echo.H
 		return c.JSON(
 			http.StatusOK,
 			withdrawResp{
-				AccountID:  acc.ID(),
+				AccountID:  acc.StringID(),
 				NewBalance: acc.Balance,
 			},
 		)

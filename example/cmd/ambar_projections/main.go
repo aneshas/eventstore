@@ -9,6 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"log"
+	"net/http"
 )
 
 func main() {
@@ -40,15 +41,15 @@ var eventSubscriptions = []any{
 // NewConsoleOutputProjection constructs an example projection that outputs
 // new accounts to the console. It might as well be to any kind of
 // database, disk, memory etc...
-func NewConsoleOutputProjection() eventstore.Projection {
-	return func(data eventstore.StoredEvent) error {
-		switch data.Event.(type) {
+func NewConsoleOutputProjection() ambar.Projection {
+	return func(_ *http.Request, event eventstore.StoredEvent) error {
+		switch event.Event.(type) {
 		case account.NewAccountOpened:
-			evt := data.Event.(account.NewAccountOpened)
+			evt := event.Event.(account.NewAccountOpened)
 			fmt.Printf("Account: #%s | Holder: <%s>\n", evt.AccountID, evt.Holder)
 
 		case account.DepositMade:
-			evt := data.Event.(account.DepositMade)
+			evt := event.Event.(account.DepositMade)
 			fmt.Printf("Deposited the amount of %d EUR\n", evt.Amount)
 
 		default:
