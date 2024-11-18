@@ -6,6 +6,7 @@ import (
 	"github.com/aneshas/eventstore"
 	"github.com/relvacode/iso8601"
 	"net/http"
+	"time"
 )
 
 var (
@@ -111,9 +112,13 @@ func (a *Ambar) Project(r *http.Request, projection Projection, data []byte) err
 		return err
 	}
 
-	occurredOn, err := iso8601.ParseString(event.Payload.OccurredOn)
-	if err != nil {
-		return err
+	var occurredOn time.Time
+
+	if event.Payload.OccurredOn != "" {
+		occurredOn, err = iso8601.ParseString(event.Payload.OccurredOn)
+		if err != nil {
+			return err
+		}
 	}
 
 	var meta map[string]string

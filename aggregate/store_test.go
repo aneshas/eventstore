@@ -86,6 +86,58 @@ func TestShould_Save_Aggregate_Events(t *testing.T) {
 	}
 
 	ctx := aggregate.CtxWithMeta(context.Background(), meta)
+
+	var f foo
+
+	f.Rehydrate(&f)
+	f.doStuff()
+
+	err := store.Save(ctx, &f)
+
+	assert.NoError(t, err)
+
+	assert.Equal(t, meta, es.eventsToStore[0].Meta)
+
+	assert.Equal(t, ctx, es.ctx)
+	assert.Equal(t, 0, es.version)
+	assert.Equal(t, "foo-2", es.id)
+
+	events := f.Events()
+
+	assert.Equal(t, []eventstore.EventToStore{
+		{
+			Event: fooEvent{
+				Foo: "foo-1",
+			},
+			ID:                 events[0].ID,
+			CausationEventID:   events[0].ID,
+			CorrelationEventID: events[0].ID,
+			Meta:               meta,
+			OccurredOn:         time.Time{},
+		},
+		{
+			Event: fooEvent{
+				Foo: "foo-2",
+			},
+			ID:                 events[1].ID,
+			CausationEventID:   events[0].ID,
+			CorrelationEventID: events[0].ID,
+			Meta:               meta,
+			OccurredOn:         time.Time{},
+		},
+	}, es.eventsToStore)
+}
+
+func TestShould_Save_Aggregate_Events_With_Explicit_CorrelationIDs(t *testing.T) {
+	var es eventStore
+
+	store := aggregate.NewStore[*foo](&es)
+
+	meta := map[string]string{
+		"foo": "bar",
+	}
+
+	ctx := aggregate.CtxWithMeta(context.Background(), meta)
 	ctx = aggregate.CtxWithCausationID(ctx, "some-causation-event-id")
 	ctx = aggregate.CtxWithCorrelationID(ctx, "some-correlation-event-id")
 
@@ -97,14 +149,6 @@ func TestShould_Save_Aggregate_Events(t *testing.T) {
 	err := store.Save(ctx, &f)
 
 	assert.NoError(t, err)
-
-	assert.Equal(t, "some-causation-event-id", es.eventsToStore[0].CausationEventID)
-	assert.Equal(t, "some-correlation-event-id", es.eventsToStore[0].CorrelationEventID)
-	assert.Equal(t, meta, es.eventsToStore[0].Meta)
-
-	assert.Equal(t, ctx, es.ctx)
-	assert.Equal(t, 0, es.version)
-	assert.Equal(t, "foo-2", es.id)
 
 	events := f.Events()
 
@@ -124,13 +168,12 @@ func TestShould_Save_Aggregate_Events(t *testing.T) {
 				Foo: "foo-2",
 			},
 			ID:                 events[1].ID,
-			CausationEventID:   "some-causation-event-id",
+			CausationEventID:   events[0].ID,
 			CorrelationEventID: "some-correlation-event-id",
 			Meta:               meta,
 			OccurredOn:         time.Time{},
 		},
 	}, es.eventsToStore)
-
 }
 
 func TestShould_Return_AggregateNotFound_Error_If_No_Events(t *testing.T) {

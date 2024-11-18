@@ -54,17 +54,29 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 		causationID = v
 	}
 
-	for _, evt := range aggregate.Events() {
-		events = append(events, eventstore.EventToStore{
-			Event:      evt.E,
-			ID:         evt.ID,
-			OccurredOn: evt.OccurredOn,
+	if correlationID == "" {
+		correlationID = aggregate.FirstEventID()
+	}
 
-			// Optional
+	if causationID == "" {
+		causationID = aggregate.LastEventID()
+	}
+
+	for _, evt := range aggregate.Events() {
+		if causationID == "" {
+			causationID = evt.ID
+		}
+
+		events = append(events, eventstore.EventToStore{
+			Event:              evt.E,
+			ID:                 evt.ID,
+			OccurredOn:         evt.OccurredOn,
 			CausationEventID:   causationID,
 			CorrelationEventID: correlationID,
 			Meta:               meta,
 		})
+
+		causationID = evt.ID
 	}
 
 	return s.eventStore.AppendStream(

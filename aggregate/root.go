@@ -25,6 +25,8 @@ type Rooter interface {
 	Events() []Event
 	Version() int
 	Rehydrate(acc any, events ...Event)
+	FirstEventID() string
+	LastEventID() string
 }
 
 // Root represents reusable DDD Event Sourcing friendly Aggregate
@@ -36,7 +38,20 @@ type Root[T fmt.Stringer] struct {
 	version      int
 	domainEvents []Event
 
+	firstEventID string
+	lastEventID  string
+
 	ptr reflect.Value
+}
+
+// LastEventID returns last event ID
+func (a *Root[T]) LastEventID() string {
+	return a.lastEventID
+}
+
+// FirstEventID returns first event ID
+func (a *Root[T]) FirstEventID() string {
+	return a.firstEventID
 }
 
 // StringID returns aggregate ID string
@@ -54,6 +69,7 @@ func (a *Root[T]) Rehydrate(aggregatePtr any, events ...Event) {
 
 	for _, evt := range events {
 		a.mutate(evt)
+		a.lastEventID = evt.ID
 
 		a.version++
 	}
@@ -125,6 +141,10 @@ func (a *Root[T]) mutate(evt Event) {
 
 	if !h.IsValid() {
 		panic(ErrMissingAggregateEventHandler)
+	}
+
+	if a.firstEventID == "" {
+		a.firstEventID = evt.ID
 	}
 
 	if h.Type().NumIn() == 2 {
