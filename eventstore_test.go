@@ -5,6 +5,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/aneshas/tx/v2"
+	"github.com/aneshas/tx/v2/gormtx"
+	"github.com/stretchr/testify/assert"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -71,7 +74,7 @@ func TestShouldReadAppendedEvents(t *testing.T) {
 	}
 }
 
-func TestShouldWriteToDifferentStreams(t *testing.T) {
+func TestShouldWriteToDifferentStreamsWithTransaction(t *testing.T) {
 	es, cleanup := eventStore(t)
 
 	defer cleanup()
@@ -92,19 +95,27 @@ func TestShouldWriteToDifferentStreams(t *testing.T) {
 	streamOne := "some-stream"
 	streamTwo := "another-stream"
 
-	err := es.AppendStream(
-		ctx, streamOne, eventstore.InitialStreamVersion, toEventToStore(evts...),
-	)
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
+	transactor := tx.New(gormtx.NewDB(es.DB))
 
-	err = es.AppendStream(
-		ctx, streamTwo, eventstore.InitialStreamVersion, toEventToStore(evts...),
-	)
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
+	err := transactor.WithTransaction(ctx, func(ctx context.Context) error {
+		err := es.AppendStream(
+			ctx, streamOne, eventstore.InitialStreamVersion, toEventToStore(evts...),
+		)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+
+		err = es.AppendStream(
+			ctx, streamTwo, eventstore.InitialStreamVersion, toEventToStore(evts...),
+		)
+		if err != nil {
+			t.Fatalf("error: %v", err)
+		}
+
+		return nil
+	})
+
+	assert.NoError(t, err)
 }
 
 func TestShouldAppendToExistingStream(t *testing.T) {
@@ -522,7 +533,7 @@ func TestNewEncoderMustBeProvided(t *testing.T) {
 func TestNewDBMustBeProvided(t *testing.T) {
 	_, err := eventstore.New(eventstore.NewJSONEncoder())
 	if err == nil {
-		t.Fatal("db con must be provided")
+		t.Fatal("DB con must be provided")
 	}
 }
 

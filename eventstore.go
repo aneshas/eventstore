@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/aneshas/tx/v2/gormtx"
 	uuid2 "github.com/google/uuid"
 	"gorm.io/driver/sqlite"
 	"io"
@@ -81,7 +82,7 @@ func New(enc Encoder, opts ...Option) (*EventStore, error) {
 	}
 
 	return &EventStore{
-		db:  db,
+		DB:  db,
 		enc: enc,
 	}, db.AutoMigrate(&gormEvent{})
 }
@@ -117,14 +118,14 @@ func WithSQLiteDB(path string) Option {
 
 // EventStore represents a sqlite event store implementation
 type EventStore struct {
-	db  *gorm.DB
+	DB  *gorm.DB
 	enc Encoder
 }
 
 // Close should be called as a part of cleanup process
 // in order to close the underlying sql connection
 func (es *EventStore) Close() error {
-	sqlDB, err := es.db.DB()
+	sqlDB, err := es.DB.DB()
 	if err != nil {
 		return err
 	}
@@ -243,13 +244,22 @@ func (es *EventStore) AppendStream(
 		eventsToSave[i] = event
 	}
 
-	tx := es.db.WithContext(ctx).Create(&eventsToSave)
+	tx := es.conn(ctx).Create(&eventsToSave)
 
 	if errors.Is(tx.Error, gorm.ErrDuplicatedKey) {
 		return ErrConcurrencyCheckFailed
 	}
 
 	return tx.Error
+}
+
+func (es *EventStore) conn(ctx context.Context) *gorm.DB {
+	tx, ok := gormtx.From(ctx)
+	if ok {
+		return tx.DB
+	}
+
+	return es.DB.WithContext(ctx)
 }
 
 // SubAllConfig (configure using SubAllOpt)
@@ -395,7 +405,7 @@ func (es *EventStore) SubscribeAll(ctx context.Context, opts ...SubAllOpt) (Subs
 
 				var evts []gormEvent
 
-				if err := es.db.
+				if err := es.DB.
 					Where("sequence > ?", cfg.offset).
 					Order("sequence asc").
 					Limit(cfg.batchSize).
@@ -439,7 +449,7 @@ func (es *EventStore) ReadStream(ctx context.Context, stream string) ([]StoredEv
 		return nil, fmt.Errorf("stream name must be provided")
 	}
 
-	if err := es.db.
+	if err := es.DB.
 		WithContext(ctx).
 		Where("stream_id = ?", stream).
 		Order("sequence asc").
