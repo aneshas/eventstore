@@ -23,4 +23,4 @@ production workloads in combination with [Ambar.cloud](https://ambar.cloud/) usi
 
 ## Example
 
-I provided a simple [example](example/) that showcases basic usage with sqlite.
+I provided a simple [example](example/) that showcases basic usage with sqlite, or check out [cqrs clinic example](https://github.com/aneshas/cqrs-clinic)
