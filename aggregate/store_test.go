@@ -71,6 +71,14 @@ func (f *foo) doStuff() {
 	)
 }
 
+func (f *foo) doMoreStuff() {
+	f.Apply(
+		fooEvent{
+			Foo: "foo-1",
+		},
+	)
+}
+
 // OnFooEvent handler
 func (f *foo) OnfooEvent(evt fooEvent) {
 	f.ID = ID(evt.Foo)
