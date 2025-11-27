@@ -9,11 +9,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"time"
+
 	"github.com/aneshas/tx/v2/gormtx"
 	uuid2 "github.com/google/uuid"
 	"gorm.io/driver/sqlite"
-	"io"
-	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -116,7 +117,7 @@ func WithSQLiteDB(path string) Option {
 	}
 }
 
-// EventStore represents a sqlite event store implementation
+// EventStore represents a sql based event store implementation
 type EventStore struct {
 	DB  *gorm.DB
 	enc Encoder

@@ -2,9 +2,10 @@ package aggregate
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"reflect"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -25,7 +26,7 @@ type Rooter interface {
 	Events() []Event
 	Version() int
 	Rehydrate(acc any, events ...Event)
-	FirstEventID() string
+	FirstEventCorrelationID() string
 	LastEventID() string
 }
 
@@ -38,8 +39,10 @@ type Root[T fmt.Stringer] struct {
 	version      int
 	domainEvents []Event
 
-	firstEventID string
-	lastEventID  string
+	// Unles set explicitly eg. as an ID of an event we are reacting to,
+	// it should be set to the id of the first event in the aggregate
+	firstEventCorrelationID string
+	lastEventID             string
 
 	ptr reflect.Value
 }
@@ -49,9 +52,9 @@ func (a *Root[T]) LastEventID() string {
 	return a.lastEventID
 }
 
-// FirstEventID returns first event ID
-func (a *Root[T]) FirstEventID() string {
-	return a.firstEventID
+// FirstEventCorrelationID returns first event correlation ID
+func (a *Root[T]) FirstEventCorrelationID() string {
+	return a.firstEventCorrelationID
 }
 
 // StringID returns aggregate ID string
@@ -143,8 +146,8 @@ func (a *Root[T]) mutate(evt Event) {
 		panic(ErrMissingAggregateEventHandler)
 	}
 
-	if a.firstEventID == "" {
-		a.firstEventID = evt.ID
+	if a.firstEventCorrelationID == "" {
+		a.firstEventCorrelationID = evt.ID
 	}
 
 	if h.Type().NumIn() == 2 {

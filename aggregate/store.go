@@ -3,6 +3,7 @@ package aggregate
 import (
 	"context"
 	"errors"
+
 	"github.com/aneshas/eventstore"
 )
 
@@ -55,7 +56,7 @@ func (s *Store[T]) Save(ctx context.Context, aggregate T) error {
 	}
 
 	if correlationID == "" {
-		correlationID = aggregate.FirstEventID()
+		correlationID = aggregate.FirstEventCorrelationID()
 	}
 
 	if causationID == "" {
@@ -122,6 +123,9 @@ func CtxWithMeta(ctx context.Context, meta map[string]string) context.Context {
 }
 
 // CtxWithCorrelationID returns new context with correlation ID
+// If reacting to an event - always set correlation id to the event ID you are
+// reacting to in order to preserve the correct partial order.
+// If not set the correlation ID will be the first event in the sequence for a specific aggregate
 func CtxWithCorrelationID(ctx context.Context, id string) context.Context {
 	return context.WithValue(ctx, correlationIDKey{}, id)
 }
