@@ -44,7 +44,8 @@ type Root[T fmt.Stringer] struct {
 	firstEventCorrelationID string
 	lastEventID             string
 
-	ptr reflect.Value
+	ptr      reflect.Value
+	handlers map[string]reflect.Value
 }
 
 // LastEventID returns last event ID
@@ -137,14 +138,7 @@ func (a *Root[T]) ApplyWithID(eventID string, event any) {
 
 func (a *Root[T]) mutate(evt Event) {
 	ev := reflect.TypeOf(evt.E)
-
-	hName := fmt.Sprintf("On%s", ev.Name())
-
-	h := a.ptr.MethodByName(hName)
-
-	if !h.IsValid() {
-		panic(ErrMissingAggregateEventHandler)
-	}
+	h := a.handler(fmt.Sprintf("On%s", ev.Name()))
 
 	if a.firstEventCorrelationID == "" {
 		a.firstEventCorrelationID = evt.ID
@@ -162,6 +156,26 @@ func (a *Root[T]) mutate(evt Event) {
 	h.Call([]reflect.Value{
 		reflect.ValueOf(evt.E),
 	})
+}
+
+func (a *Root[T]) handler(name string) reflect.Value {
+	if a.handlers == nil {
+		a.handlers = make(map[string]reflect.Value)
+	}
+
+	if h, ok := a.handlers[name]; ok {
+		return h
+	}
+
+	h := a.ptr.MethodByName(name)
+
+	if !h.IsValid() {
+		panic(ErrMissingAggregateEventHandler)
+	}
+
+	a.handlers[name] = h
+
+	return h
 }
 
 func (a *Root[T]) appendEvent(evt Event) {
