@@ -67,14 +67,14 @@ func (a *Root[T]) StringID() string {
 func (a *Root[T]) Rehydrate(aggregatePtr any, events ...Event) {
 	a.ptr = reflect.ValueOf(aggregatePtr)
 
-	if a.ptr.Kind() != reflect.Ptr {
+	if a.ptr.Kind() != reflect.Pointer {
 		panic(ErrAggregateRootNotAPointer)
 	}
 
 	for _, evt := range events {
 		a.mutate(evt)
-		a.lastEventID = evt.ID
 
+		a.lastEventID = evt.ID
 		a.version++
 	}
 }
