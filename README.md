@@ -1,3 +1,5 @@
+
+
 # Go EventStore
 
 [![Go](https://github.com/aneshas/eventstore/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/aneshas/eventstore/actions/workflows/go.yml)
@@ -5,7 +7,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/aneshas/eventstore)](https://goreportcard.com/report/github.com/aneshas/eventstore)
 
 Embeddable SQL EventStore + Aggregate Abstraction written in Go using gorm as an underlying persistence mechanism meaning - it will work
-with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (just use the respective gorm driver - sqlite and postgres provided).
+with `almost` (tested sqlite and postgres) whatever underlying database gorm will support (use the provided `WithSQLiteDB` or `WithPostgresDB` options to configure the database).
 
 It is also equiped with a fault-tolerant projection system that can be used to build read models for testing purposes and is also ready for 
 production workloads in combination with [Ambar.cloud](https://ambar.cloud/) using the provided ambar package.
